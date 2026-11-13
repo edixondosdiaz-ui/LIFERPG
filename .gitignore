@@ -12,3 +12,4 @@ supabase
 !supabase/
 supabase/*
 !supabase/09_hoy_racha_habitos.sql
+!supabase/10_fuerza_rutinas.sql
