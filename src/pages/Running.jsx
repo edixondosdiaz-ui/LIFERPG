@@ -1,3 +1,5 @@
+import RunControls from '../components/RunControls'
+import { healthFailure } from '../lib/healthLayout'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import * as api from '../services/running'
@@ -8,7 +10,7 @@ import { filterPoint, METERS_PER_MILE, paceText } from '../lib/running'
 import RunRoute from '../components/RunRoute'
 import { Card, Stat } from '../components/ui'
 
-export default function Running() {
+export default function Running({embedded=false}) {
   const { refreshProfile }=useAuth()
   const [rules,setRules]=useState(null),[ready,setReady]=useState(false),[activity,setActivity]=useState('walk'),[units,setUnits]=useState('km')
   const [session,setSession]=useState(null),[running,setRunning]=useState(false),[points,setPoints]=useState([]),[meters,setMeters]=useState(0),[currentPace,setCurrentPace]=useState(null)
@@ -18,13 +20,14 @@ export default function Running() {
   const sessionRef=useRef(null),runningRef=useRef(false),watch=useRef(null),wake=useRef(null),queue=useRef(Promise.resolve()),frame=useRef(null),pending=useRef([])
   const previous=useRef(null),sampleAt=useRef(null),segment=useRef(0),clockBase=useRef({seconds:0,at:0}),manualId=useRef(null),flushRef=useRef(null),mounted=useRef(true),actionBusy=useRef(false)
   const [,tick]=useState(0)
+  const [attempt,setAttempt]=useState(0)
   function adopt(s) {sessionRef.current=s;if(mounted.current)setSession(s);clockBase.current={seconds:s?.active_seconds || 0,at:performance.now()}}
   const reload=useCallback(async()=>{const [h,s]=await Promise.all([api.history(),api.overview()]);if(mounted.current){setRows(h);setStats(s)}},[])
   useEffect(()=>{
-    mounted.current=true;let active=true
-    ;(async()=>{try{const [r,s,p]=await Promise.all([api.getRules(),api.activeRun(),getPreferences()]);if(!active)return;setRules(r);setUnits(p?.units || 'km');if(s){adopt(s);setActivity(s.activity);segment.current=s.segment;setMeters(Number(s.meters));setPoints(await api.route(s.id));setNotice('Recuperamos tu borrador en pausa. Reanuda para volver a usar el GPS.')}await reload()}catch(e){if(active)setError(e.message)}finally{if(active)setReady(true)}})()
+    mounted.current=true;let active=true;setReady(false);setError('')
+    ;(async()=>{try{const [r,s,p]=await Promise.all([api.getRules(),api.activeRun(),getPreferences().catch(e=>{console.error('[Salud] Preferencias de recorrido',e);return null})]);if(!active)return;setRules(r);setUnits(p?.units || 'km');if(s){adopt(s);setActivity(s.activity);segment.current=s.segment;setMeters(Number(s.meters));setPoints(await api.route(s.id));setNotice('Recuperamos tu borrador en pausa. Reanuda para volver a usar el GPS.')}await reload()}catch(e){if(active)setError(healthFailure(e))}finally{if(active)setReady(true)}})()
     return()=>{active=false;mounted.current=false;stopTracking();if(sessionRef.current?.status==='running')flushRef.current?.('pause').catch(()=>{})}
-  },[reload])
+  },[reload,attempt])
   function stopTracking(){if(runningRef.current){clockBase.current={seconds:clockBase.current.seconds+Math.max(0,(performance.now()-clockBase.current.at)/1000),at:performance.now()}}runningRef.current=false;if(mounted.current){setRunning(false);setCurrentPace(null)}if(watch.current!==null){navigator.geolocation.clearWatch(watch.current);watch.current=null}wake.current?.release().catch(()=>{});wake.current=null;previous.current=null;sampleAt.current=null}
   async function wakeScreen(){if(!navigator.wakeLock){setWakeMessage('Este navegador no admite mantener la pantalla encendida automáticamente.');return}try{const lock=await navigator.wakeLock.request('screen');if(!runningRef.current){await lock.release();return}wake.current=lock;setWakeMessage('Pantalla encendida mientras el navegador lo permita.')}catch{if(mounted.current)setWakeMessage('No se pudo bloquear el apagado. Mantén la pantalla encendida manualmente.')}}
   async function transmit(packet){
@@ -48,10 +51,10 @@ export default function Running() {
     queue.current=work;return work
   }
   flushRef.current=flush
-  useEffect(()=>{if(!running || !rules)return;const id=setInterval(()=>flushRef.current('save').catch(e=>{if(mounted.current)setError(`No se guardó el último tramo: ${e.message}. Mantén esta pantalla abierta y reintenta.`)}),Number(rules.heartbeat_seconds)*1000);return()=>clearInterval(id)},[running,rules])
+  useEffect(()=>{if(!running || !rules)return;const id=setInterval(()=>flushRef.current('save').catch(e=>{if(mounted.current)setError(healthFailure(e,'No pudimos guardar el último tramo. Mantén esta pantalla abierta y reintenta.'))}),Number(rules.heartbeat_seconds)*1000);return()=>clearInterval(id)},[running,rules])
   useEffect(()=>{if(!running)return;const id=setInterval(()=>tick(n=>n+1),1000);return()=>clearInterval(id)},[running])
   useEffect(()=>{
-    function visibility(){if(document.visibilityState==='hidden' && runningRef.current){stopTracking();setNotice('La actividad se pausó al ocultar la app. Reanuda cuando regreses.');flushRef.current('pause').catch(e=>{if(mounted.current)setError(e.message)})}}
+    function visibility(){if(document.visibilityState==='hidden' && runningRef.current){stopTracking();setNotice('La actividad se pausó al ocultar la app. Reanuda cuando regreses.');flushRef.current('pause').catch(e=>{if(mounted.current)setError(healthFailure(e))})}}
     document.addEventListener('visibilitychange',visibility);return()=>document.removeEventListener('visibilitychange',visibility)
   },[])
   function watchGps(r){
@@ -67,9 +70,9 @@ export default function Running() {
       if(result.break)segment.current+=1
       if(previous.current && result.meters>0)setCurrentPace((p.t-previous.current.t)/1000/(result.meters/1000))
       previous.current=p;setMeters(m=>m+result.meters);setPoints(list=>[...list,{...p,segment:segment.current}]);setNotice('GPS activo. Tu ruta es privada.')
-    },e=>{setNotice(e.code===1?'Permiso de ubicación denegado. Puedes usar el registro manual.':'No pudimos obtener un punto GPS. Espera señal al aire libre.');if(e.code===1){stopTracking();flushRef.current('pause').catch(err=>setError(err.message))}}, {enableHighAccuracy:true,maximumAge:0,timeout:15000})
+    },e=>{setNotice(e.code===1?'Permiso de ubicación denegado. Puedes usar el registro manual.':'No pudimos obtener un punto GPS. Espera señal al aire libre.');if(e.code===1){stopTracking();flushRef.current('pause').catch(err=>setError(healthFailure(err)))}}, {enableHighAccuracy:true,maximumAge:0,timeout:15000})
   }
-  async function act(fn){if(actionBusy.current)return;actionBusy.current=true;setBusy(true);setError('');try{await fn()}catch(e){setError(e.message)}finally{actionBusy.current=false;if(mounted.current)setBusy(false)}}
+  async function act(fn){if(actionBusy.current)return;actionBusy.current=true;setBusy(true);setError('');try{await fn()}catch(e){setError(healthFailure(e))}finally{actionBusy.current=false;if(mounted.current)setBusy(false)}}
   function start(){act(async()=>{
     if(!window.isSecureContext || !navigator.geolocation)throw Error('El GPS requiere HTTPS (o localhost) y un navegador con ubicación. Puedes registrar manualmente.')
     const s=await api.startRun(activity);adopt(s);setSummary(null);setDetail(null);setPoints([]);setMeters(0);pending.current=[];frame.current=null;watchGps(rules)
@@ -90,16 +93,17 @@ export default function Running() {
   async function show(row){act(async()=>{setDetail(row);setPoints(await api.route(row.id))})}
   function erase(){if(!shown || !confirm('¿Borrar permanentemente los puntos de esta ruta? Se conservan las métricas y el XP.'))return;act(async()=>{await api.deleteRoute(shown.id);const changed={...shown,route_deleted:true};if(detail)setDetail(changed);else setSummary(changed);setPoints([]);await reload()})}
   return <div className="space-y-5">
-    <Link to="/pilares/salud" className="text-sm text-sub">← Salud</Link><h1 className="text-2xl font-extrabold">Correr / Caminar</h1>
-    <section className="surface space-y-3 p-4"><p className="text-sm">Usaremos tu ubicación para medir distancia, ritmo y dibujar tu recorrido privado. Solo la pedimos al iniciar o reanudar una actividad GPS.</p><p className="text-xs font-bold text-warning">Mantén la pantalla encendida. El rastreo en segundo plano no es confiable en una PWA; al ocultar la app intentamos pausar y guardar.</p><p className="text-xs text-sub">El borrador se guarda en Supabase cada {rules?.heartbeat_seconds ?? 30} s. Sin conexión, el tramo pendiente solo estará en esta pantalla hasta poder guardarse.</p></section>
+    {!embedded && <><Link to="/pilares/salud" className="inline-flex min-h-[44px] items-center text-sm text-sub">← Salud</Link><h1 className="text-2xl font-extrabold">Running o caminata</h1></>}
+    <details className="rounded-button border border-stroke bg-panel-inset p-3"><summary className="flex min-h-[44px] cursor-pointer items-center gap-2 text-sm font-semibold"><span aria-hidden="true" className="flex h-5 w-5 items-center justify-center rounded-full border border-stroke text-[12px]">i</span>Cómo medimos tu recorrido</summary><div className="mt-2 space-y-2"><p className="text-[12px] text-sub">Usamos tu ubicación al iniciar o reanudar para medir distancia y ritmo. Tu recorrido es privado; descartamos las señales imprecisas.</p><p className="text-[12px] font-semibold text-warning">Mantén la pantalla encendida. Si ocultas la app, intentamos pausar y guardar la actividad.</p><p className="text-[12px] text-sub">Guardamos automáticamente cada {rules?.heartbeat_seconds ?? 30} segundos. Sin conexión, mantén esta pantalla abierta hasta poder guardar.</p></div></details>
     {error && <section role="alert" className="space-y-3 rounded-2xl border border-error/30 p-4 text-sm text-error"><p>{error}</p>{session && <button disabled={busy} className="text-xs underline" onClick={()=>act(async()=>{const saved=await flush(running?'save':'pause');if(saved?.status==='completed')await completeLocal(saved)})}>Reintentar guardado</button>}</section>}
+    {ready && !rules && <button className="pilot-secondary" onClick={()=>setAttempt(v=>v+1)}>Reintentar cargar actividad</button>}
     {notice && <p role="status" className="text-xs text-pu-light">{notice}</p>}
     {!ready && <p className="text-sm text-sub">Recuperando actividad…</p>}
     {ready && rules && <>
       <label className="block text-sm font-bold">Actividad<select disabled={!!session || busy} className="field mt-2" value={activity} onChange={e=>{setActivity(e.target.value);manualId.current=null}}><option value="walk">Caminar</option><option value="run">Correr</option></select></label>
       <Card title={session?(running?'Actividad en curso':'Actividad en pausa'):'Actividad con GPS'}>
-        {session ? <><div className="grid grid-cols-2 gap-2"><Stat label="Distancia aproximada" value={distance(meters)}/><Stat label="Tiempo activo" value={clock(elapsed)}/><Stat label={`Ritmo actual · min/${units}`} value={paceText(currentPace*(unitMeters/1000))}/><Stat label={`Ritmo promedio · min/${units}`} value={paceText(meters>0?elapsed/(meters/unitMeters):null)}/></div><div className="grid grid-cols-2 gap-2"><button disabled={busy} className="btn" onClick={running?pause:resume}>{running?'Pausar':'Reanudar'}</button><button disabled={busy} className="btn" onClick={finish}>Finalizar</button></div><button disabled={busy} className="text-xs text-sub" onClick={discard}>Descartar actividad</button><p className="text-[11px] text-sub">Último guardado: {new Date(session.heartbeat_at).toLocaleTimeString('es-CO',{timeZone:'America/Bogota'})}. Al recuperar un borrador siempre queda en pausa.</p></>
-          : <button disabled={busy} className="btn w-full" onClick={start}>Iniciar {activity==='walk'?'caminata':'carrera'} con GPS</button>}
+        {session ? <><div className="grid grid-cols-2 gap-2"><Stat label="Distancia aproximada" value={distance(meters)}/><Stat label="Tiempo activo" value={clock(elapsed)}/><Stat label={`Ritmo actual · min/${units}`} value={paceText(currentPace*(unitMeters/1000))}/><Stat label={`Ritmo promedio · min/${units}`} value={paceText(meters>0?elapsed/(meters/unitMeters):null)}/></div><RunControls session={session} running={running} busy={busy} activity={activity} onPause={pause} onResume={resume} onFinish={finish}/><button disabled={busy} className="min-h-[44px] text-xs text-sub" onClick={discard}>Descartar actividad</button><p className="text-[11px] text-sub">Último guardado: {new Date(session.heartbeat_at).toLocaleTimeString('es-CO',{timeZone:'America/Bogota'})}. Al recuperar un borrador siempre queda en pausa.</p></>
+          : <><div className="grid grid-cols-2 gap-2"><Stat label="Última distancia" value={rows[0]?distance(rows[0].meters):'—'}/><Stat label="Tiempo activo" value={rows[0]?clock(rows[0].active_seconds):'—'}/><Stat label={`Ritmo promedio · min/${units}`} value={rows[0] && Number(rows[0].meters)>0?paceText(rows[0].active_seconds/(Number(rows[0].meters)/unitMeters)):'—'}/></div><RunControls session={null} running={false} busy={busy} activity={activity} onStart={start}/></>}
         {wakeMessage && <p className="text-xs text-sub">{wakeMessage}</p>}
       </Card>
       {!session && <Card title="Registro manual · sin ubicación"><form onSubmit={manual} className="space-y-3"><label className="block text-xs">Distancia ({units})<input className="field mt-2" required type="number" min={.1} max={units==='mi'?124:200} step=".01" inputMode="decimal" value={manualDistance} onChange={e=>{setManualDistance(e.target.value);manualId.current=null}}/></label><label className="block text-xs">Duración (minutos)<input className="field mt-2" required type="number" min={1} max={720} step=".1" inputMode="decimal" value={manualMinutes} onChange={e=>{setManualMinutes(e.target.value);manualId.current=null}}/></label><p className="text-xs text-sub">Manual: {rules.manual_xp_per_km} XP/km, máximo {rules.manual_daily_cap} XP al día. GPS: {rules.gps_xp_per_km} XP/km, tope diario conjunto {rules.daily_xp_cap}. Las velocidades imposibles no dan XP.</p><button disabled={busy} className="btn w-full">Guardar actividad manual</button></form></Card>}

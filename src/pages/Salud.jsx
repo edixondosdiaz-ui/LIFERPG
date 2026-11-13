@@ -1,7 +1,9 @@
 import { HydrationPanel } from '../components/PilotCards'
 import { palette } from '../design/tokens'
-import Wellbeing from '../components/Wellbeing'
-import { Link } from 'react-router-dom'
+import Running from './Running'
+import HealthSections from '../components/HealthSections'
+import { healthOrder, healthFailure } from '../lib/healthLayout'
+import { loadHealthLayout, saveHealthLayout } from '../services/healthLayout'
 import * as ex from '../services/experience'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
@@ -36,7 +38,7 @@ const fmtH = (h) => `${Math.floor(h)} h ${String(Math.round((h % 1) * 60)).padSt
 const L = (n) => `${(n / 1000).toLocaleString('es-CO', { maximumFractionDigits: 2 })} L`
 
 /* ---------------------------------- AGUA ---------------------------------- */
-function Water({ data, settings, reload, notify, saveSettings, enableNotifications, children }) {
+function Water({ data, settings, reload, notify, saveSettings, enableNotifications }) {
   const t = todayStr()
   const { refreshProfile } = useAuth()
   const [custom, setCustom] = useState('')
@@ -52,9 +54,9 @@ function Water({ data, settings, reload, notify, saveSettings, enableNotificatio
       const r = await px.logWater(ml)
       await Promise.all([reload(), refreshProfile()])
       notify(r.total >= r.goal && total < goal ? `🎉 Meta de agua cumplida${xpText(r)}` : `+${ml} ml${xpText(r)}`, r.total >= r.goal && total < goal ? 'pr' : 'ok')
-    } catch (e) { notify(e.message, 'err') }
+    } catch (e) { notify(healthFailure(e), 'err') }
   }
-  async function remove(id) { try { await px.deleteWater(id); reload() } catch (e) { notify(e.message, 'err') } }
+  async function remove(id) { try { await px.deleteWater(id); reload() } catch (e) { notify(healthFailure(e), 'err') } }
 
   const n = range === 'semana' ? 7 : 30
   const days = lastDays(n)
@@ -121,7 +123,6 @@ function Water({ data, settings, reload, notify, saveSettings, enableNotificatio
           </div>
         </div>
       </Card>
-      {children}
     </div>
   )
 }
@@ -158,9 +159,9 @@ function Sleep({ data, settings, reload, notify, saveSettings }) {
       await Promise.all([reload(), refreshProfile()])
       notify(`Sueño guardado · ${fmtH(r.hours)}${xpText(r)}`, r.hours >= goal ? 'pr' : 'ok')
       setHours('')
-    } catch (err) { notify(err.message, 'err') }
+    } catch (err) { notify(healthFailure(err), 'err') }
   }
-  async function remove(id) { if (confirmDelete('¿Borrar este registro de sueño?')) { try { await px.deleteSleep(id); reload() } catch (e) { notify(e.message, 'err') } } }
+  async function remove(id) { if (confirmDelete('¿Borrar este registro de sueño?')) { try { await px.deleteSleep(id); reload() } catch (e) { notify(healthFailure(e), 'err') } } }
 
   return (
     <div className="space-y-4">
@@ -248,9 +249,9 @@ function Food({ data, settings, reload, notify, saveSettings }) {
       setF({ name: '', quantity: '', kcal: '', protein: '', carbs: '', fat: '' })
       await Promise.all([reload(), refreshProfile()])
       notify(`Agregado a ${MEALS.find((m) => m.id === type).label.toLowerCase()}${xpText(r)}`)
-    } catch (err) { notify(err.message, 'err') }
+    } catch (err) { notify(healthFailure(err), 'err') }
   }
-  async function remove(id) { try { await px.deleteMeal(id); reload() } catch (e) { notify(e.message, 'err') } }
+  async function remove(id) { try { await px.deleteMeal(id); reload() } catch (e) { notify(healthFailure(e), 'err') } }
 
   const n = range === 'semana' ? 7 : 30
   const days = lastDays(n)
@@ -350,6 +351,16 @@ function Food({ data, settings, reload, notify, saveSettings }) {
 
 /* -------------------------------- PANTALLA -------------------------------- */
 export default function Salud() {
+  const {user}=useAuth()
+  const [order,setOrder]=useState(healthOrder()),[layoutReady,setLayoutReady]=useState(false),[savingOrder,setSavingOrder]=useState(false),[layoutMessage,setLayoutMessage]=useState(''),[dataReady,setDataReady]=useState(false)
+  const savingRef=useRef(false)
+  const readLayout=useCallback(async()=>{try{const row=await loadHealthLayout();setOrder(healthOrder(row?.section_order));setLayoutReady(true);setLayoutMessage('')}catch(e){setLayoutMessage(healthFailure(e,'No pudimos recuperar el orden de tus tarjetas. Intenta de nuevo.'))}},[])
+  useEffect(()=>{if(user?.id)readLayout()},[user?.id,readLayout])
+  async function changeOrder(next){
+    if(savingRef.current || !layoutReady)return
+    const previous=order;savingRef.current=true;setSavingOrder(true);setOrder(next);setLayoutMessage('Guardando orden…')
+    try{await saveHealthLayout(user.id,next);setLayoutMessage('Orden guardado')}catch(e){setOrder(previous);setLayoutReady(false);setLayoutMessage(healthFailure(e,'No pudimos confirmar el guardado. Mostramos el orden anterior; vuelve a consultarlo.'))}finally{savingRef.current=false;setSavingOrder(false)}
+  }
   const [settings, setSettings] = useState(px.DEFAULT_SETTINGS)
   const [notifications, setNotifications] = useState(false)
   const [data, setData] = useState({ water: [], sleep: [], meals: [] })
@@ -360,15 +371,15 @@ export default function Salud() {
   const reload = useCallback(async () => {
     const since = addDays(todayStr(), -29)
     const [water, sleep, meals] = await Promise.all([px.listWater(since), px.listSleep(since), px.listMeals(since)])
-    setData({ water, sleep, meals })
+    setData({ water, sleep, meals });setDataReady(true)
   }, [])
 
   useEffect(() => {
-    Promise.all([px.getSettings().then(setSettings), ex.getPreferences().then(p => setNotifications(p?.notifications ?? (typeof Notification !== 'undefined' && Notification.permission === 'granted'))), reload()]).catch((e) => notify(e.message, 'err')).finally(() => setReady(true))
+    Promise.all([px.getSettings().then(setSettings), ex.getPreferences().then(p => setNotifications(p?.notifications ?? (typeof Notification !== 'undefined' && Notification.permission === 'granted'))), reload()]).catch((e) => notify(healthFailure(e), 'err')).finally(() => setReady(true))
   }, [reload, notify])
 
   const saveSettings = useCallback(async (patch) => {
-    try { await px.saveSettings(patch); setSettings((s) => ({ ...s, ...patch })); notify('Guardado') } catch (e) { notify(e.message, 'err'); throw e }
+    try { await px.saveSettings(patch); setSettings((s) => ({ ...s, ...patch })); notify('Guardado') } catch (e) { notify(healthFailure(e), 'err'); throw e }
   }, [notify])
 
   // Recordatorio de agua (solo mientras la app está abierta)
@@ -390,9 +401,16 @@ export default function Salud() {
   const props = { data, settings, reload, notify, saveSettings, enableNotifications }
   return (
     <div className="space-y-5">
-      <PillarHeader pillar="vitalidad" title="Salud" kicker="Agua, sueño y alimentación" color={GREEN} icon="❤️" />
-      <Link to="/pilares/salud/correr" className="btn block w-full text-center">Correr / Caminar</Link>
-      {!ready ? <p className="py-8 text-center text-sm text-sub">Cargando…</p> : <Water {...props}><Sleep {...props} /><Wellbeing notify={notify} /><Food {...props} /></Water>}
+      <PillarHeader pillar="vitalidad" title="Salud" kicker="Movimiento, descanso y alimentación" color={GREEN} icon="❤️" />
+      <HealthSections order={order} onOrder={changeOrder} disabled={!layoutReady || savingOrder} status={<>{layoutMessage && <p role="status" className="text-[12px] text-sub">{layoutMessage}</p>}{!layoutReady && layoutMessage && <button className="pilot-secondary" onClick={readLayout}>Reintentar cargar orden</button>}</>}>{ {
+        running:<Running embedded/>,
+        water:dataReady?<Water {...props}/>:<p className="text-sm text-sub">{ready?'No pudimos cargar tus registros. Intenta de nuevo.':'Cargando hidratación…'}</p>,
+        sleep:dataReady?<Sleep {...props}/>:<p className="text-sm text-sub">{ready?'No pudimos cargar tus registros. Intenta de nuevo.':'Cargando sueño…'}</p>,
+        food:dataReady?<Food {...props}/>:<p className="text-sm text-sub">{ready?'No pudimos cargar tus registros. Intenta de nuevo.':'Cargando alimentos…'}</p>
+      } }</HealthSections>
+
+
+      {ready && !dataReady && <button className="pilot-secondary" onClick={()=>reload().catch(e=>notify(healthFailure(e),'err'))}>Reintentar cargar registros</button>}
       <Toast msg={toast} />
     </div>
   )

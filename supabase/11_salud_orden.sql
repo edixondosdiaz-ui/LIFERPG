@@ -4,7 +4,7 @@ create table if not exists public.health_layout_preferences (
   user_id uuid primary key default auth.uid() references public.profiles(id) on delete cascade,
   section_order text[] not null default array['running','water','sleep','food'],
   constraint health_layout_valid_order check (
-    cardinality(section_order)=4 and array_position(section_order,null) is null
+    array_ndims(section_order)=1 and cardinality(section_order)=4 and array_position(section_order,null) is null
     and section_order @> array['running','water','sleep','food']
     and section_order <@ array['running','water','sleep','food']
   )

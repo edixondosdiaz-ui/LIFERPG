@@ -1,0 +1,6 @@
+export function RunActionIcon({kind}){
+  return <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="currentColor">{kind==='pause'?<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>:kind==='finish'?<path d="M5 5h14v14H5z"/>:<path d="m7 3 15 9-15 9V3Z"/>}</svg>
+}
+export default function RunControls({session,running,busy,disabled=false,activity,onStart,onPause,onResume,onFinish}){
+  return <div className="space-y-3"><p role="status" className={`text-[12px] font-bold ${running?'text-health':'text-sub'}`}>{session?(running?'Actividad en curso':'Actividad en pausa'):'Todo listo para salir'}</p>{session?<div className="grid grid-cols-2 gap-2"><button disabled={busy || disabled} className="pilot-secondary !px-2" onClick={running?onPause:onResume}><RunActionIcon kind={running?'pause':'start'}/>{busy?'Procesando…':running?'Pausar':'Reanudar'}</button><button disabled={busy || disabled} className="btn flex gap-2 !px-2" onClick={onFinish}><RunActionIcon kind="finish"/>{busy?'Procesando…':'Finalizar'}</button></div>:<button disabled={busy || disabled} className="btn flex min-h-[52px] w-full gap-2" onClick={onStart}><RunActionIcon kind="start"/>{busy?'Preparando…':`Iniciar ${activity==='walk'?'caminata':'carrera'}`}</button>}</div>
+}
