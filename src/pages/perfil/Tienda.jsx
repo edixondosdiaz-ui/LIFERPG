@@ -1,97 +1,82 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import * as api from '../../services/api'
+import * as economy from '../../services/economy'
 import { useAuth } from '../../context/AuthContext'
 import Avatar from '../../components/Avatar'
-import { haptic } from '../../lib/ui'
 
-const CATS = [
-  { id: 'ropa', label: 'Ropa' },
-  { id: 'accesorio', label: 'Accesorios' },
-  { id: 'premium', label: 'Premium' },
-]
-const RARITY = {
-  common: { label: 'Común', color: '#8b91a5' },
-  rare: { label: 'Raro', color: '#38bdf8' },
-  epic: { label: 'Épico', color: '#a855f7' },
-  legendary: { label: 'Legendario', color: '#e6b43c' },
-}
+const CATEGORIES = [ ['avatar','Avatar'], ['backgrounds','Fondos de avatar'], ['frames','Marcos de perfil'], ['titles','Títulos'], ['utilities','Utilidades'] ]
+const RARITY = { common:['Común','#8b91a5'], rare:['Raro','#38bdf8'], epic:['Épico','#a855f7'], legendary:['Legendario','#e6b43c'] }
+const sectionOf = item => item.section || ({background:'backgrounds',fx:'backgrounds',frame:'frames',title:'titles'}[item.data?.slot] || 'avatar')
 
-function Preview({ item, avatar }) {
-  const slot = item.data?.slot
-  if (slot === 'badge') return <span className="text-5xl">{item.data.icon}</span>
-  if (slot === 'wrist') return <span className="grid h-16 w-16 place-items-center rounded-full border-2 text-3xl" style={{ borderColor: item.data.color }}>⌚</span>
-  return <Avatar avatar={avatar} equipped={[item.data]} view={slot === 'frame' || slot === 'fx' || slot === 'face' ? 'head' : 'bust'} size={96} />
+function Preview({ item, avatar, equipped }) {
+  const data=item.data || {}
+  if(data.utility) return <span className="rounded-2xl border border-pu/30 px-4 py-3 text-center text-sm font-extrabold text-pu-light">{data.utility==='rename_card'?'@ Nuevo nombre':'Racha protegida'}</span>
+  if(data.slot==='title') return <span className="text-center text-lg font-extrabold text-pu-light">{data.text}</span>
+  if(data.slot==='badge') return <span className="text-4xl">{data.icon}</span>
+  const preview=[...equipped.filter(e=>e.slot!==data.slot),data]
+  return <Avatar avatar={avatar} equipped={preview} size={106} view={data.slot==='wrist'?'full':'bust'} />
 }
 
 export default function Tienda() {
-  const { profile, refreshProfile } = useAuth()
-  const [items, setItems] = useState(null)
-  const [owned, setOwned] = useState({}) // item_id -> equipped
-  const [cat, setCat] = useState('ropa')
-  const [busyId, setBusyId] = useState(null)
-  const [msg, setMsg] = useState({ type: '', text: '' })
-
-  const load = useCallback(async () => {
-    const [its, inv] = await Promise.all([api.listShopItems(), api.listInventory()])
-    setItems(its)
-    setOwned(Object.fromEntries(inv.map((i) => [i.item_id, i.equipped])))
-  }, [])
-  useEffect(() => { load().catch((e) => setMsg({ type: 'err', text: e.message })) }, [load])
-
-  async function act(item, kind) {
-    setBusyId(item.id); setMsg({ type: '', text: '' }); haptic(12)
-    try {
-      if (kind === 'buy') await api.buyItem(item.id)
-      else await api.equipItem(item.id, kind === 'equip')
-      await Promise.all([load(), refreshProfile()])
-      if (kind === 'buy') setMsg({ type: 'ok', text: `Compraste ${item.name}` })
-    } catch (e) { setMsg({ type: 'err', text: e.message }) }
-    setBusyId(null)
+  const { profile, equipped, refreshProfile }=useAuth()
+  const [params,setParams]=useSearchParams()
+  const category=CATEGORIES.some(([id])=>id===params.get('categoria'))?params.get('categoria'):'avatar'
+  const [items,setItems]=useState(null)
+  const [owned,setOwned]=useState({})
+  const [wallet,setWallet]=useState(null)
+  const [movements,setMovements]=useState([])
+  const [rewards,setRewards]=useState(null)
+  const [busy,setBusy]=useState(false)
+  const working=useRef(false)
+  const [pending,setPending]=useState(null)
+  const [message,setMessage]=useState('')
+  const [error,setError]=useState('')
+  const load=useCallback(async()=>{
+    const [catalog,inventory,w,r]=await Promise.all([api.listShopItems(),api.listInventory(),economy.wallet(),economy.rules()])
+    const history=await economy.ledger()
+    setItems(catalog);setOwned(Object.fromEntries(inventory.map(i=>[i.item_id,i.equipped])));setWallet(w);setMovements(history);setRewards(r)
+  },[])
+  useEffect(()=>{load().catch(e=>setError(e.message))},[load])
+  const priceOf=item=>Math.max(0,Math.floor(item.price_coins*(100-(wallet?.premium?wallet.discount:0))/100))
+  async function act(work,success) {
+    if(working.current)return
+    working.current=true;setBusy(true);setError('');setMessage('')
+    try {await work();setPending(null);setMessage(success);await refreshProfile();await load()}
+    catch(e){setError(e.message)}finally{working.current=false;setBusy(false)}
   }
-
-  const coins = profile?.coins ?? 0
-  const list = (items ?? []).filter((i) => i.category === cat)
-
-  return (
-    <div className="space-y-5">
-      <header className="surface flex items-center justify-between p-4">
-        <div><h1 className="text-xl font-extrabold tracking-tight">Tienda</h1><p className="text-xs text-sub">Gana monedas con tus logros</p></div>
-        <div className="rounded-2xl bg-gold/15 px-4 py-2 text-lg font-black text-gold">🪙 {coins.toLocaleString('es-CO')}</div>
-      </header>
-
-      <div className="flex gap-1.5 rounded-2xl border border-white/[.07] bg-card p-1.5">
-        {CATS.map((c) => (
-          <button key={c.id} onClick={() => { haptic(4); setCat(c.id) }}
-            className={`flex-1 rounded-xl py-2.5 text-xs font-bold transition active:scale-95 ${cat === c.id ? 'bg-gradient-to-b from-pu-light to-pu-dark text-white' : 'text-sub'}`}>{c.label}</button>
-        ))}
-      </div>
-
-      {msg.text && <p key={msg.text} className={`animate-pop rounded-2xl border px-4 py-2.5 text-center text-sm font-semibold ${msg.type === 'ok' ? 'border-pu/30 bg-pu/10 text-pu-light' : 'border-red-400/30 bg-red-400/10 text-red-300'}`}>{msg.text}</p>}
-      {!items && !msg.text && <p className="text-center text-sm text-sub">Cargando…</p>}
-
-      <div className="grid grid-cols-2 gap-3">
-        {list.map((it) => {
-          const r = RARITY[it.rarity]
-          const has = it.id in owned
-          const on = owned[it.id]
-          const busy = busyId === it.id
-          return (
-            <div key={it.id} className="surface flex flex-col overflow-hidden p-3" style={on ? { borderColor: '#a855f7aa' } : undefined}>
-              <div className="grid h-28 place-items-center rounded-2xl bg-black/25"><Preview item={it} avatar={profile?.avatar} /></div>
-              <p className="mt-2.5 truncate text-sm font-extrabold">{it.name}</p>
-              <p className="text-[10px] font-bold" style={{ color: r.color }}>{r.label}</p>
-              <p className="mt-1 line-clamp-2 min-h-[28px] text-[11px] text-sub">{it.description}</p>
-              <div className="mt-2.5">
-                {it.is_premium && !has ? <span className="block rounded-xl bg-white/5 py-2.5 text-center text-xs font-bold text-sub">Premium · Próximamente</span>
-                  : has ? <button disabled={busy} onClick={() => act(it, on ? 'unequip' : 'equip')}
-                      className={`w-full rounded-xl py-2.5 text-xs font-bold transition active:scale-95 ${on ? 'bg-pu/20 text-pu-light' : 'bg-white/10'}`}>{on ? 'Equipado · Quitar' : 'Equipar'}</button>
-                  : <button disabled={busy || coins < it.price_coins} onClick={() => act(it, 'buy')} className="btn w-full !rounded-xl !py-2.5 text-xs">🪙 {it.price_coins}{coins < it.price_coins ? ' · faltan ' + (it.price_coins - coins) : ''}</button>}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-      {items && !list.length && <p className="text-center text-sm text-sub">Pronto habrá más objetos aquí.</p>}
-    </div>
-  )
+  function ask(item) {setError('');setPending({item,price:priceOf(item),requestId:crypto.randomUUID()})}
+  return <div className="space-y-5">
+    <header className="surface flex items-center justify-between gap-3 p-4"><div><h1 className="text-xl font-extrabold">Tienda</h1><p className="mt-1 text-xs text-sub">Cosméticos y utilidades. Tu XP no está en venta.</p></div><p className="shrink-0 text-lg font-black text-gold">{(wallet?.coins ?? profile?.coins ?? 0).toLocaleString('es-CO')}<span className="block text-right text-[10px] font-normal text-sub">monedas</span></p></header>
+    {wallet?.premium && <p className="text-xs text-pu-light">Descuento Premium activo: {wallet.discount}%</p>}
+    <label className="block text-xs font-bold text-sub">Categoría<select className="field mt-2" value={category} onChange={e=>setParams({categoria:e.target.value})}>{CATEGORIES.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
+    {error && <p role="alert" className="rounded-2xl border border-red-400/30 p-3 text-sm text-red-300">{error}</p>}
+    {message && <p role="status" className="text-sm text-pu-light">{message}</p>}
+    {!items && !error && <p className="text-sm text-sub">Cargando tienda…</p>}
+    {pending && <section role="alertdialog" aria-modal="true" aria-label="Confirmar compra" className="surface space-y-3 border-pu/40 p-4">
+      <h2 className="font-extrabold">Confirmar compra</h2><p className="text-sm">{pending.item.name} por <b className="text-gold">{pending.price} monedas</b>.</p><p className="text-xs text-sub">Saldo después de comprar: {(wallet?.coins ?? 0)-pending.price} monedas.</p>
+      <div className="grid grid-cols-2 gap-2"><button disabled={busy} className="rounded-2xl bg-white/10 py-3 text-sm" onClick={()=>setPending(null)}>Cancelar</button><button disabled={busy} className="btn" onClick={()=>act(()=>economy.purchase(pending.item.id,pending.requestId,pending.price),`Compraste ${pending.item.name}`)}>{busy?'Procesando…':'Confirmar compra'}</button></div>
+      <p className="text-xs text-sub">Si la conexión falla, reintenta esta misma compra: el servidor reconoce la solicitud y evita cobrar dos veces.</p>
+    </section>}
+    <div className="grid grid-cols-2 gap-3">{(items || []).filter(item=>sectionOf(item)===category).map(item=>{
+      const [rarity,color]=RARITY[item.rarity] || RARITY.common
+      const utility=item.data?.utility, has=item.id in owned, on=owned[item.id], quantity=wallet?.utilities?.[utility] ?? 0
+      const price=priceOf(item), premiumOnly=item.is_premium && !wallet?.premium
+      const capped=utility==='streak_guard' && quantity>=2
+      return <article key={item.id} className="surface flex flex-col overflow-hidden p-3" style={on?{borderColor:'#a855f7aa'}:undefined}>
+        <div className="grid h-28 place-items-center rounded-2xl bg-black/25"><Preview item={item} avatar={profile?.avatar} equipped={equipped}/></div>
+        <h2 className="mt-3 text-sm font-extrabold">{item.name}</h2><p className="mt-1 text-[10px] font-bold" style={{color}}>{rarity}</p><p className="mt-2 flex-1 text-xs text-sub">{item.description}</p>
+        <p className="mt-3 text-sm font-bold text-gold">{wallet?.premium && price<item.price_coins && <s className="mr-1 text-xs font-normal text-sub">{item.price_coins}</s>}{price} monedas</p>
+        {utility && <p className="mt-1 text-xs text-sub">En inventario: {quantity}{utility==='streak_guard'?' / 2':''}</p>}
+        <div className="mt-3">{has && !utility ? <button disabled={busy} className="w-full rounded-xl bg-pu/15 py-3 text-xs font-bold text-pu-light" onClick={()=>act(()=>api.equipItem(item.id,!on),on?'Objeto retirado':'Objeto equipado')}>{on?'Equipado · Quitar':'Equipar'}</button>
+          : <button disabled={busy || !wallet || premiumOnly || capped || wallet.coins<price} onClick={()=>ask(item)} className="btn w-full !rounded-xl !px-2 !py-3 text-xs">{premiumOnly?'Solo premium':capped?'Máximo 2':wallet && wallet.coins<price?'Sin saldo':'Comprar'}</button>}
+          {premiumOnly && <Link to="/premium" className="mt-2 block text-center text-[10px] text-pu-light">Activar prueba gratuita →</Link>}
+        </div>
+      </article>
+    })}</div>
+    {items && !items.some(i=>sectionOf(i)===category) && <p className="text-sm text-sub">Disponible pronto</p>}
+    {category==='utilities' && wallet && <section className="surface space-y-3 p-4"><h2 className="font-bold">Usar tus utilidades</h2><Link to="/perfil" className="block text-sm text-pu-light">Cambiar usuario · {wallet.name_changes} cambios disponibles →</Link><p className="text-xs text-sub">El protector cubre ayer si faltó actividad y tenías una racha anteayer. No otorga XP ni completa hábitos.</p><button disabled={busy || !wallet.utilities.streak_guard} className="btn w-full" onClick={()=>{if(confirm('¿Consumir un protector para cubrir el día de ayer?'))act(economy.useStreakGuard,'Día de ayer protegido')}}>Usar protector de racha</button></section>}
+    {rewards && <section className="surface space-y-2 p-4"><h2 className="font-bold">Cómo ganas monedas</h2><p className="text-xs text-sub">Nivel alcanzado: +{rewards.level_coins}. Racha de al menos siete días: +{rewards.weekly_streak_coins}, máximo una vez cada siete días. Actividad en los cuatro pilares del día: +{rewards.complete_day_coins}. Ascenso de liga: +{rewards.league_promotion_coins}. Los logros conservan sus recompensas.</p></section>}
+    <section className="surface space-y-3 p-4"><h2 className="font-bold">Movimientos de monedas</h2><p className="text-xs text-sub">Últimos 40 movimientos. El saldo previo se reconoce como apertura.</p>{!movements.length && <p className="text-xs text-sub">Sin movimientos para mostrar.</p>}<div className="max-h-80 space-y-3 overflow-y-auto">{movements.map(m=><div key={m.id} className="flex items-start justify-between gap-3 text-xs"><div><p>{m.reason}</p><p className="mt-1 text-sub">{new Date(m.created_at).toLocaleString('es-CO',{timeZone:'America/Bogota',dateStyle:'short',timeStyle:'short'})}</p></div><div className="shrink-0 text-right"><b className={m.amount>=0?'text-emerald-300':'text-gold'}>{m.amount>0?'+':''}{m.amount}</b><p className="mt-1 text-sub">Saldo {m.balance}</p></div></div>)}</div></section>
+  </div>
 }

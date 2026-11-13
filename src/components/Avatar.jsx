@@ -20,14 +20,17 @@ function Face({ shape, ...p }) {
 
 export default function Avatar({ avatar, equipped = [], size = 96, view = 'bust', rounded = true, className = '' }) {
   const uid = useId().replace(/:/g, '')
-  const a = normalizeAvatar(avatar)
-  const aes = AESTHETICS[a.aesthetic] || AESTHETICS.atleta
   const item = (slot) => equipped.find((e) => e?.slot === slot)
+  const base = normalizeAvatar(avatar)
+  const a = { ...base, hair: item('hair')?.style || base.hair, accessory: item('accessory')?.style || base.accessory }
+  const aes = AESTHETICS[a.aesthetic] || AESTHETICS.atleta
+  const bg = item('background')?.colors || aes.bg
+  const expression = item('expression')
   const top = item('top'), face = item('face'), back = item('back'), wrist = item('wrist')
   const frame = item('frame'), fx = item('fx')
   const full = view === 'full'
   const skinDark = shade(a.skin, -28)
-  const shirt = top?.color || aes.shirt
+  const shirt = top?.color || a.shirtColor || aes.shirt
   const accent = top?.accent || aes.accent
   const hair = a.hairColor
   const faceTop = a.face === 'alargado' ? 34 : a.face === 'redondo' ? 42 : 38
@@ -37,7 +40,7 @@ export default function Avatar({ avatar, equipped = [], size = 96, view = 'bust'
     <svg viewBox={VIEWBOX[view]} width={size * (full ? ratio : 1)} height={size} className={className}
       style={{ borderRadius: rounded ? (view === 'head' ? '50%' : 28) : 0, display: 'block' }} role="img" aria-label="Avatar">
       <defs>
-        <linearGradient id={`bg${uid}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={aes.bg[0]} /><stop offset="1" stopColor={aes.bg[1]} /></linearGradient>
+        <linearGradient id={`bg${uid}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={bg[0]} /><stop offset="1" stopColor={bg[1]} /></linearGradient>
         <radialGradient id={`fx${uid}`}><stop offset="0" stopColor={fx?.color || '#a855f7'} stopOpacity=".55" /><stop offset="1" stopColor={fx?.color || '#a855f7'} stopOpacity="0" /></radialGradient>
         <linearGradient id={`fr${uid}`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={frame?.color || '#fff'} /><stop offset="1" stopColor={frame?.color2 || frame?.color || '#fff'} /></linearGradient>
         <clipPath id={`face${uid}`}><Face shape={a.face} /></clipPath>
@@ -59,6 +62,7 @@ export default function Avatar({ avatar, equipped = [], size = 96, view = 'bust'
       {/* pelo trasero */}
       {a.hair === 'largo' && <path d="M62 70 C56 118 58 150 68 168 L92 150 L92 80Z M138 70 C144 118 142 150 132 168 L108 150 L108 80Z" fill={hair} />}
       {a.hair === 'rizado' && <g fill={hair}><circle cx="62" cy="86" r="11" /><circle cx="138" cy="86" r="11" /><circle cx="66" cy="104" r="8" /><circle cx="134" cy="104" r="8" /></g>}
+      {a.hair === 'trenzas' && <g stroke={hair} strokeWidth="10" strokeLinecap="round"><path d="M65 65 Q55 108 65 143 M135 65 Q145 108 135 143" /></g>}
 
       {/* cuerpo */}
       {full && <>
@@ -104,8 +108,10 @@ export default function Avatar({ avatar, equipped = [], size = 96, view = 'bust'
         {a.beard === 'corta' && <path d="M60 92 C66 100 76 100 84 100 C92 106 108 106 116 100 C124 100 134 100 140 92 L140 130 L60 130Z" fill={hair} opacity=".92" />}
         {a.beard === 'completa' && <path d="M58 82 C62 96 72 98 80 100 C90 94 110 94 120 100 C128 98 138 96 142 82 L146 136 L54 136Z" fill={hair} />}
       </g>
-      {(a.beard === 'corta' || a.beard === 'completa') && <path d="M90 107 C96 110 104 110 110 107" stroke={shade(a.skin, -50)} strokeWidth="2" fill="none" strokeLinecap="round" />}
-      {(a.beard === 'ninguna' || a.beard === 'sombra') && <path d="M91 106 C96 110 104 110 109 106" stroke={shade(a.skin, -55)} strokeWidth="2" fill="none" strokeLinecap="round" />}
+      {expression?.style === 'smile' ? <path d="M88 103 Q100 119 112 103Z" fill="#fff" stroke={shade(a.skin,-55)} strokeWidth="1.5" /> : <>
+        {(a.beard === 'corta' || a.beard === 'completa') && <path d="M90 107 C96 110 104 110 110 107" stroke={shade(a.skin, -50)} strokeWidth="2" fill="none" strokeLinecap="round" />}
+        {(a.beard === 'ninguna' || a.beard === 'sombra') && <path d="M91 106 C96 110 104 110 109 106" stroke={shade(a.skin, -55)} strokeWidth="2" fill="none" strokeLinecap="round" />}
+      </>}
 
       {/* ojos y cejas */}
       <g>
@@ -121,6 +127,8 @@ export default function Avatar({ avatar, equipped = [], size = 96, view = 'bust'
       {face?.style === 'sport' && <g><path d="M70 72 H130 L127 86 C124 92 106 92 102 86 L100 84 L98 86 C94 92 76 92 73 86Z" fill={face.color} opacity=".9" /><path d="M72 74 H128" stroke={face.accent} strokeWidth="1.8" /></g>}
 
       {/* pelo frontal */}
+      {a.hair === 'trenzas' && <g><path d="M62 74 C58 35 80 26 100 26 C122 26 142 35 138 74 L126 52 L74 52Z" fill={hair}/><path d="M77 34 L75 56 M91 29 L90 53 M105 28 L106 53 M119 33 L123 56" stroke={shade(hair,30)} strokeWidth="3"/></g>}
+      {a.hair === 'degradado' && <g fill={hair}><path d="M62 72 C58 40 80 26 100 26 C122 26 142 40 138 72 L130 57 L70 57Z"/><path d="M64 65 L68 85 L73 57 M136 65 L132 85 L127 57" opacity=".3"/></g>}
       {a.hair === 'rapado' && <path d="M65 70 C64 44 82 34 100 34 C118 34 136 44 135 70 C128 56 116 50 100 50 C84 50 72 56 65 70Z" fill={hair} opacity=".55" />}
       {a.hair === 'corto' && <path d="M62 74 C58 40 80 26 100 26 C122 26 142 40 138 74 C132 58 120 50 100 50 C80 50 68 58 62 74Z" fill={hair} />}
       {a.hair === 'texturizado' && <g fill={hair}><path d="M62 74 C56 38 80 24 102 24 C124 24 144 40 138 74 C132 58 120 50 100 50 C80 50 68 58 62 74Z" /><path d="M72 36 L80 22 L88 34 L98 18 L106 33 L118 20 L122 36Z" /></g>}

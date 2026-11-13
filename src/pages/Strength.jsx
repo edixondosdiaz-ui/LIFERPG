@@ -2,15 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import * as api from '../services/api'
 import * as px from '../services/pillars'
+import * as ex from '../services/experience'
+import { PRODUCT } from '../lib/product'
+import RoutineManager from '../components/RoutineManager'
 import { BarChart, LineChart } from '../components/charts'
-import { Card, Chip, Empty, PillarHeader, Stat, Tabs, Toast, useToast, xpText } from '../components/ui'
+import { Card, Chip, Empty, PillarHeader, Stat, Toast, useToast, xpText } from '../components/ui'
 import { addDays, clock, fmtDay, fmtDuration, sum, today as todayStr, weekStart } from '../lib/dates'
 import { compress, e1rm, fmtGroup, groupByDay, kg, maxWeight, volumeOf } from '../lib/fitness'
 
 const RED = '#ff4d4f'
 const DAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const REST = [30, 60, 90, 120, 180]
-const START_KEY = 'liferpg_workout_start'
 
 // 1 = lunes ... 7 = domingo, en hora de Colombia
 const todayWeekday = () => {
@@ -36,7 +38,7 @@ function GroupLine({ g, onDelete }) {
 }
 
 /* ---------- Tarjeta de ejercicio ---------- */
-function ExerciseCard({ exercise, onDelete, onChanged, notify }) {
+function ExerciseCard({ exercise, onDelete, onRename, onChanged, notify }) {
   const { refreshProfile } = useAuth()
   const [history, setHistory] = useState(null)
   const [weight, setWeight] = useState('')
@@ -47,7 +49,13 @@ function ExerciseCard({ exercise, onDelete, onChanged, notify }) {
   const [rpe, setRpe] = useState(null)
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
-  const [view, setView] = useState(null) // null | 'peso' | 'volumen' | 'historial'
+  const [restEnd, setRestEnd] = useState(null)
+  const [restNow, setRestNow] = useState(Date.now())
+  useEffect(() => {
+    if (!restEnd) return
+    const id = setInterval(() => setRestNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [restEnd])
 
   const load = useCallback(async () => setHistory(await px.listExerciseHistory(exercise.id)), [exercise.id])
   useEffect(() => { load().catch((e) => notify(e.message, 'err')) }, [load, notify])
@@ -69,6 +77,10 @@ function ExerciseCard({ exercise, onDelete, onChanged, notify }) {
 
   const lastGroups = compress(d.lastSets)
   const todayGroups = compress(d.todaySets)
+  useEffect(() => {
+    const last = d.lastSets[0]
+    if (last) { setWeight(v => v === '' ? String(last.weight_kg) : v); setReps(v => v === '' ? String(last.reps) : v) }
+  }, [d.lastSets])
 
   async function done(r, extra = '') {
     onChanged()
@@ -87,6 +99,7 @@ function ExerciseCard({ exercise, onDelete, onChanged, notify }) {
         rpe, restSeconds: rest, notes: notes.trim() || null,
       })
       setNotes('')
+      setRestNow(Date.now()); setRestEnd(Date.now() + (rest || PRODUCT.restSeconds) * 1000)
       await done(r)
     } catch (err) { notify(err.message, 'err') } finally { setBusy(false) }
   }
@@ -100,6 +113,7 @@ function ExerciseCard({ exercise, onDelete, onChanged, notify }) {
         xp += r.xp_awarded || 0
       }
       await done({ xp_awarded: xp }, ' · sesión anterior duplicada')
+      setRestNow(Date.now()); setRestEnd(Date.now() + (rest || PRODUCT.restSeconds) * 1000)
     } catch (err) { notify(err.message, 'err') } finally { setBusy(false) }
   }
 
@@ -134,7 +148,7 @@ function ExerciseCard({ exercise, onDelete, onChanged, notify }) {
             )}
           </div>
         </div>
-        <button onClick={onDelete} className="rounded-full bg-white/5 px-3 py-1 text-[11px] font-semibold text-sub transition hover:bg-red-400/15 hover:text-red-300 active:scale-95">Borrar</button>
+        <div className="flex gap-1"><button onClick={onRename} aria-label={`Editar ${exercise.name}`} className="rounded-full bg-white/5 px-3 py-1 text-xs text-pu-light">✎</button><button onClick={onDelete} className="rounded-full bg-white/5 px-3 py-1 text-[11px] font-semibold text-sub transition hover:bg-red-400/15 hover:text-red-300 active:scale-95">Borrar</button></div>
       </div>
 
       <div className="grid grid-cols-2 gap-2.5">
@@ -157,6 +171,7 @@ function ExerciseCard({ exercise, onDelete, onChanged, notify }) {
       )}
 
       <form onSubmit={submit} className="space-y-2.5">
+        {restEnd && <p role="status" className="text-sm font-bold text-pu-light">{restEnd > restNow ? `Descanso · ${clock((restEnd-restNow)/1000)}` : 'Descanso terminado'}</p>}
         <div className="grid grid-cols-[1fr_1fr_.8fr] gap-2">
           <label className="block"><span className="mb-1 block text-[10px] font-bold text-sub">Peso (kg)</span>
             <input className="field" type="number" inputMode="decimal" min="0" max="1000" step="0.5" required value={weight} onChange={(e) => setWeight(e.target.value)} /></label>
@@ -190,22 +205,25 @@ function ExerciseCard({ exercise, onDelete, onChanged, notify }) {
         <button disabled={busy} className="btn w-full">
           {busy ? 'Guardando…' : preview ? `Registrar · ${preview.toLocaleString('es-CO')} kg de volumen` : 'Registrar ejercicio'}
         </button>
+        {d.todaySets.length > 0 && <button type="button" disabled={busy} className="w-full rounded-2xl border border-pu/30 py-3 text-sm font-bold text-pu-light" onClick={async () => {
+          const last = d.todaySets[d.todaySets.length-1]
+          setBusy(true)
+          try { const r = await px.logEntry({exerciseId:exercise.id,weightKg:Number(last.weight_kg),reps:last.reps,sets:1,rpe:last.rpe,restSeconds:last.rest_seconds,notes:null}); setRestNow(Date.now()); setRestEnd(Date.now()+(last.rest_seconds || PRODUCT.restSeconds)*1000); await done(r) } catch(e) { notify(e.message,'err') } finally { setBusy(false) }
+        }}>Repetir serie</button>}
       </form>
 
       <div className="space-y-3 border-t border-white/[.06] pt-3">
-        <Tabs color={RED} value={view ?? ''} onChange={(v) => setView(view === v ? null : v)}
-          items={[{ id: 'peso', label: 'Peso' }, { id: 'volumen', label: 'Volumen' }, { id: 'historial', label: 'Historial' }]} />
-        {view === 'peso' && (
+        {(
           <div className="space-y-2">
             <LineChart color={RED} format={kg} points={d.perDay.slice(-20).map((p) => ({ label: fmtDay(p.day), value: p.max }))} empty="Se necesitan 2 sesiones para ver la progresión." />
             {d.e1rm > 0 && <p className="text-[11px] text-sub">1RM estimado: <b className="text-ink">{kg(d.e1rm)}</b> · mejor serie: <b className="text-ink">{Math.round(d.bestVolSet)} kg de volumen</b></p>}
           </div>
         )}
-        {view === 'volumen' && (
+        {(
           <BarChart colors={[RED]} format={(v) => `${Math.round(v)} kg`} labelEvery={Math.ceil(d.perDay.slice(-14).length / 7)}
             data={d.perDay.slice(-14).map((p, i, a) => ({ label: p.day.slice(8), value: Math.round(p.volume), active: i === a.length - 1 }))} empty="Aún no hay volumen registrado." />
         )}
-        {view === 'historial' && (
+        {(
           <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
             {d.perDay.length === 0 && <p className="text-xs text-sub">Sin historial todavía.</p>}
             {[...d.perDay].reverse().map((p) => (
@@ -227,17 +245,22 @@ function ExerciseCard({ exercise, onDelete, onChanged, notify }) {
 export default function Strength() {
   const { refreshProfile } = useAuth()
   const [weekday, setWeekday] = useState(todayWeekday())
+  const [routineId, setRoutineId] = useState('')
   const [exercises, setExercises] = useState([])
   const [name, setName] = useState('')
   const [weekSets, setWeekSets] = useState([])
   const [sessions, setSessions] = useState([])
-  const [start, setStart] = useState(() => Number(localStorage.getItem(START_KEY)) || null)
+  const [start, setStart] = useState(null)
+  const [timerReady, setTimerReady] = useState(false)
+  const [timerBusy, setTimerBusy] = useState(false)
+  const [summary, setSummary] = useState(null)
+  useEffect(() => { ex.getTimer('workout').then(setStart).catch(e => notify(e.message,'err')).finally(() => setTimerReady(true)) }, [])
   const [, tick] = useState(0)
   const [toast, notify] = useToast()
   const today = todayWeekday()
   const t = todayStr()
 
-  const load = useCallback(async () => setExercises(await api.listExercises(weekday)), [weekday])
+  const load = useCallback(async () => setExercises(await api.listExercises(weekday,routineId)), [weekday,routineId])
   useEffect(() => { load().catch((e) => notify(e.message, 'err')) }, [load, notify])
 
   const loadStats = useCallback(async () => {
@@ -256,19 +279,20 @@ export default function Strength() {
   async function add(e) {
     e.preventDefault()
     if (!name.trim()) return
-    try { await api.addExercise({ weekday, name }); setName(''); load() } catch (err) { notify(err.message, 'err') }
+    try { await api.addExercise({ weekday, name, routineId:routineId || null }); setName(''); load() } catch (err) { notify(err.message, 'err') }
   }
   async function remove(id) {
     if (confirm('¿Borrar este ejercicio y todas sus series?')) { await api.deleteExercise(id); load(); loadStats() }
   }
 
-  function startWorkout() { const n = Date.now(); localStorage.setItem(START_KEY, String(n)); setStart(n) }
+  async function startWorkout() {
+    setTimerBusy(true)
+    try { setStart(await ex.timerAction('workout','start')); setSummary(null) } catch(e) { notify(e.message,'err') } finally { setTimerBusy(false) }
+  }
   async function finishWorkout() {
-    const sec = (Date.now() - start) / 1000
-    localStorage.removeItem(START_KEY); setStart(null)
-    if (sec < 60) return notify('Entrenamiento descartado: duró menos de 1 minuto', 'err')
-    try { const r = await px.saveWorkoutSession(sec); await Promise.all([loadStats(), refreshProfile()]); notify(`Entrenamiento guardado · ${fmtDuration(sec)}${xpText(r)}`, 'pr') }
-    catch (err) { notify(err.message, 'err') }
+    setTimerBusy(true)
+    try { const r = await ex.timerAction('workout','finish'); setStart(null); setSummary(r); await Promise.all([loadStats(), refreshProfile()]); notify(`Entrenamiento guardado · ${fmtDuration(r.seconds)}${xpText(r)}`, 'pr') }
+    catch (err) { notify(err.message, 'err') } finally { setTimerBusy(false) }
   }
 
   // Métricas automáticas de la semana
@@ -286,25 +310,39 @@ export default function Strength() {
     const day = addDays(ws, i)
     return { label: DAYS[i][0], value: Math.round(sum(thisWeek.filter((s) => s.performed_at === day), (s) => s.weight_kg * s.reps)), active: day === t }
   })
-  const elapsed = start ? (Date.now() - start) / 1000 : 0
+  const elapsed = ex.timerSeconds(start)
 
   return (
     <div className="space-y-5">
       <PillarHeader pillar="fuerza" title="Fuerza" kicker="Entrenamiento" color={RED} icon="⚔️" />
 
-      <Card title="Entrenamiento de hoy"
+      <Card className="sticky top-20 z-10 !bg-card" title="Entrenamiento de hoy"
         right={start ? <span className="rounded-full bg-red-400/15 px-2.5 py-1 text-[10px] font-extrabold text-red-300">● En curso</span> : null}>
         {start ? (
           <div className="flex items-center justify-between gap-3">
             <p className="text-4xl font-black tabular-nums tracking-tight">{clock(elapsed)}</p>
-            <button onClick={finishWorkout} className="btn !bg-none !bg-red-500 !shadow-none">Terminar</button>
+            <div className="space-y-2"><button disabled={timerBusy} onClick={finishWorkout} className="btn !bg-none !bg-red-500 !shadow-none">Terminar</button><button disabled={timerBusy} className="block w-full text-xs text-sub" onClick={async()=>{if(!confirm('¿Descartar el cronómetro? Las series registradas se conservan.'))return;setTimerBusy(true);try{await ex.timerAction('workout','discard');setStart(null)}catch(e){notify(e.message,'err')}finally{setTimerBusy(false)}}}>Descartar cronómetro</button></div>
           </div>
         ) : (
-          <div className="flex items-center justify-between gap-3">
+          <div className="space-y-3">
             <p className="text-xs text-sub">Inicia el cronómetro para medir el tiempo total de tu sesión.</p>
-            <button onClick={startWorkout} className="btn flex-none">Iniciar</button>
+            <button disabled={!timerReady || timerBusy} onClick={startWorkout} className="btn w-full">Empezar entrenamiento</button>
           </div>
         )}
+        {summary && <div role="status" className="rounded-2xl bg-pu/10 p-4 text-sm"><b>Entrenamiento terminado</b><p>{fmtDuration(summary.seconds)} · {Math.round(summary.volume).toLocaleString('es-CO')} kg de volumen</p><p>{summary.personal_records} récords personales · +{summary.total_xp} XP en Fuerza durante la sesión</p></div>}
+      </Card>
+
+      <RoutineManager value={routineId} onChange={setRoutineId}/>
+      <label className="block text-sm font-bold">Rutina por día<select className="field mt-2" value={weekday} onChange={e => setWeekday(Number(e.target.value))}>{DAYS.map((d,i) => <option key={d} value={i+1}>{d}{today===i+1?' · Hoy':''}</option>)}</select></label>
+
+      <form onSubmit={add} className="flex gap-2">
+        <input className="field" placeholder="Nuevo ejercicio (ej: Press de banca)" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
+        <button disabled={!name.trim()} className="btn flex-none">Agregar</button>
+      </form>
+
+      {exercises.length === 0 && <Empty title="Día libre por ahora" text="Agrega tu primer ejercicio para este día y empieza a registrar series." />}
+      {exercises.map((exercise) => <ExerciseCard key={exercise.id} exercise={exercise} onRename={async () => { const name=prompt('Nombre del ejercicio',exercise.name); if(name?.trim()) {try {await api.renameExercise(exercise.id,name);await load()} catch(e) {notify(e.message,'err')}} }} onDelete={() => remove(exercise.id)} onChanged={loadStats} notify={notify} />)}
+      <Card title="Métricas e historial semanal">
         <div className="grid grid-cols-2 gap-2">
           <Stat label="Volumen de hoy" value={`${Math.round(volToday).toLocaleString('es-CO')} kg`} color={RED} />
           <Stat label="Tiempo hoy" value={timeToday ? fmtDuration(timeToday) : '–'} sub={timeWeek ? `${fmtDuration(timeWeek)} esta semana` : undefined} />
@@ -314,27 +352,6 @@ export default function Strength() {
         </div>
         <BarChart colors={[RED]} data={bars} format={(v) => `${v} kg`} empty="El volumen de cada día aparecerá aquí." />
       </Card>
-
-      <div className="flex gap-1.5 rounded-2xl border border-white/[.07] bg-card p-1.5">
-        {DAYS.map((d, i) => {
-          const on = weekday === i + 1
-          return (
-            <button key={d} onClick={() => setWeekday(i + 1)}
-              className={`relative flex-1 rounded-xl py-2.5 text-[11px] font-bold transition active:scale-95 ${on ? 'bg-gradient-to-b from-pu-light to-pu-dark text-white shadow-[0_6px_18px_-6px_#a855f7]' : 'text-sub hover:text-ink'}`}>
-              {d}
-              {today === i + 1 && <i className={`absolute left-1/2 top-1 h-1 w-1 -translate-x-1/2 rounded-full ${on ? 'bg-white' : 'bg-pu'}`} />}
-            </button>
-          )
-        })}
-      </div>
-
-      <form onSubmit={add} className="flex gap-2">
-        <input className="field" placeholder="Nuevo ejercicio (ej: Press de banca)" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
-        <button disabled={!name.trim()} className="btn flex-none">Agregar</button>
-      </form>
-
-      {exercises.length === 0 && <Empty title="Día libre por ahora" text="Agrega tu primer ejercicio para este día y empieza a registrar series." />}
-      {exercises.map((ex) => <ExerciseCard key={ex.id} exercise={ex} onDelete={() => remove(ex.id)} onChanged={loadStats} notify={notify} />)}
       <Toast msg={toast} />
     </div>
   )

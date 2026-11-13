@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function Auth() {
@@ -57,6 +58,7 @@ export default function Auth() {
         <input className={input} type="email" required placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
         <label className={label}>Contraseña</label>
         <input className={input} type="password" required placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
+        {mode === 'login' && <Link to="/recuperar" className="mt-3 block text-xs font-bold text-pu-light">¿Olvidaste tu contraseña?</Link>}
         {mode === 'register' && (
           <label className="mt-3.5 flex items-start gap-2 text-xs leading-snug text-sub">
             <input type="checkbox" className="mt-0.5" checked={terms} onChange={(e) => setTerms(e.target.checked)} />

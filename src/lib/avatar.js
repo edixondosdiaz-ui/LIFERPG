@@ -1,13 +1,13 @@
 // Opciones del avatar "versión futura". Se guardan tal cual en profiles.avatar (jsonb).
-export const SKINS = ['#f6d7bd', '#ecbf98', '#d29a6c', '#b27849', '#8a5733', '#5d3a22']
+export const SKINS = ['#f6d7bd', '#ecbf98', '#d29a6c', '#b27849', '#8a5733', '#5d3a22', '#fbe6d4', '#40291f']
 export const HAIR_COLORS = ['#14100d', '#3a2515', '#6b4423', '#a5773f', '#d9b66a', '#cfcfd2', '#7c3aed', '#be3b45']
-export const EYE_COLORS = ['#2b1d12', '#5b3a1c', '#2f6f4f', '#3b6ea8', '#6b7280']
+export const EYE_COLORS = ['#2b1d12', '#5b3a1c', '#2f6f4f', '#3b6ea8', '#6b7280', '#9a683b']
+export const SHIRT_COLORS = ['#2d2a45', '#8b91a5', '#111827', '#7c4a1d']
 
 export const FACES = [
   { id: 'ovalado', label: 'Ovalado' },
   { id: 'redondo', label: 'Redondo' },
   { id: 'cuadrado', label: 'Cuadrado' },
-  { id: 'alargado', label: 'Alargado' },
 ]
 export const HAIRS = [
   { id: 'rapado', label: 'Rapado' },
@@ -17,6 +17,7 @@ export const HAIRS = [
   { id: 'rizado', label: 'Rizado' },
   { id: 'monio', label: 'Moño' },
   { id: 'calvo', label: 'Sin pelo' },
+  { id: 'trenzas', label: 'Trenzas' },
 ]
 export const BEARDS = [
   { id: 'ninguna', label: 'Ninguna' },
@@ -41,8 +42,13 @@ export const AESTHETICS = {
 export const DEFAULT_AVATAR = {
   skin: SKINS[2], face: 'ovalado', hair: 'corto', hairColor: HAIR_COLORS[1],
   eyes: EYE_COLORS[1], beard: 'ninguna', accessory: 'ninguno', aesthetic: 'atleta',
+  shirtColor: SHIRT_COLORS[0],
 }
 
-export const normalizeAvatar = (a) => ({ ...DEFAULT_AVATAR, ...(a || {}) })
+export const normalizeAvatar = (a) => ({ ...DEFAULT_AVATAR, ...(a || {}), shirtColor: a?.shirtColor || AESTHETICS[a?.aesthetic]?.shirt || SHIRT_COLORS[0] })
+export function randomAvatar() {
+  const pick = (list) => list[Math.floor(Math.random() * list.length)]
+  return { ...DEFAULT_AVATAR, skin: pick(SKINS), hair: pick(HAIRS).id, hairColor: pick(HAIR_COLORS), eyes: pick(EYE_COLORS), beard: pick(BEARDS).id, face: pick(FACES).id, shirtColor: pick(SHIRT_COLORS) }
+}
 // ¿El usuario ya personalizó algo? (profiles.avatar viene como {} al inicio)
 export const hasAvatar = (a) => !!a && Object.keys(a).length > 0

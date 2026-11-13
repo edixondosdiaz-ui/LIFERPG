@@ -10,7 +10,7 @@ export function PillarHeader({ pillar, title, kicker, color, icon }) {
   const lp = levelProgress(xp)
   return (
     <header className="space-y-4">
-      <BackButton to="/pilares" label="Pilares" />
+      <BackButton to="/" label="Hoy" />
       <div className="relative overflow-hidden rounded-3xl border p-4"
         style={{ borderColor: color + '40', background: `linear-gradient(135deg, ${color}2e, #15161c 70%)` }}>
         <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full blur-3xl" style={{ background: color + '40' }} />
@@ -40,20 +40,7 @@ export function PillarHeader({ pillar, title, kicker, color, icon }) {
 
 // Pestañas tipo segmento
 export function Tabs({ items, value, onChange, color = '#a855f7' }) {
-  return (
-    <div className="flex gap-1.5 rounded-2xl border border-white/[.07] bg-card p-1.5" role="tablist">
-      {items.map((t) => {
-        const on = value === t.id
-        return (
-          <button key={t.id} role="tab" aria-selected={on} onClick={() => onChange(t.id)}
-            className={`flex-1 rounded-xl py-2.5 text-xs font-bold transition active:scale-95 ${on ? 'text-white' : 'text-sub hover:text-ink'}`}
-            style={on ? { background: `linear-gradient(180deg, ${color}, ${color}bb)`, boxShadow: `0 6px 18px -8px ${color}` } : undefined}>
-            {t.label}
-          </button>
-        )
-      })}
-    </div>
-  )
+  return <select aria-label="Periodo de la información" className="field !w-auto !text-xs" style={{borderColor:color+'55'}} value={value} onChange={e=>onChange(items.find(t=>String(t.id)===e.target.value).id)}>{items.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}</select>
 }
 
 // Mensajes cortos (XP ganado, errores). Uso: const [toast, show] = useToast()

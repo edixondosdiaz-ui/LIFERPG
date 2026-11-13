@@ -1,10 +1,11 @@
 import { supabase } from './supabase'
 import { unwrap, today } from './api'
+import { PRODUCT } from '../lib/product'
 
 /* ---------- Ajustes y objetivos ---------- */
 
 export const DEFAULT_SETTINGS = {
-  water_goal_ml: 2500, water_reminder_min: null, sleep_goal_h: 8,
+  water_goal_ml: PRODUCT.waterGoalMl, water_reminder_min: null, sleep_goal_h: 8,
   kcal_goal: 2200, protein_goal: 120, carbs_goal: 250, fat_goal: 70, study_goal_min_week: 600,
 }
 
@@ -62,7 +63,7 @@ export async function listWater(since) {
   return unwrap(await supabase.from('water_logs').select('id, ml, logged_on, created_at')
     .gte('logged_on', since).order('created_at', { ascending: true }).limit(3000))
 }
-export const logWater = async (ml) => unwrap(await supabase.rpc('log_water', { p_ml: ml }))
+export const logWater = async (ml) => unwrap(await supabase.rpc('log_water_quick', { p_ml: ml }))
 export const deleteWater = async (id) => unwrap(await supabase.from('water_logs').delete().eq('id', id))
 
 export async function listSleep(since) {

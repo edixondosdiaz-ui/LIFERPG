@@ -53,7 +53,7 @@ export default function FriendProfile() {
             <div className="pointer-events-none absolute -top-20 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-pu/30 blur-3xl" />
             <div className="relative mx-auto w-fit"><Avatar avatar={them.avatar} equipped={them.equipped} view="bust" size={140} /></div>
             <p className="relative mt-4 truncate text-2xl font-extrabold tracking-tight">@{them.username} {them.equipped.find((e) => e.slot === 'badge')?.icon}</p>
-            {them.display_name && <p className="relative text-sm text-ink/80">{them.display_name}</p>}
+            {them.equipped.find(e=>e.slot==='title') && <p className="relative text-sm font-bold text-pu-light">{them.equipped.find(e=>e.slot==='title').text}</p>}
             <div className="relative mt-4 grid grid-cols-3 gap-2.5">
               <div className="rounded-2xl border border-white/[.08] bg-white/5 py-2.5"><p className="text-lg font-extrabold">{levelFromXp(them.xp)}</p><p className="text-[10px] text-sub">Nivel</p></div>
               <div className="rounded-2xl border border-white/[.08] bg-white/5 py-2.5"><p className="text-lg font-extrabold">🔥 {them.streak}</p><p className="text-[10px] text-sub">Racha</p></div>

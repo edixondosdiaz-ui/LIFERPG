@@ -5,20 +5,21 @@ import Avatar from '../components/Avatar'
 import BackButton from '../components/BackButton'
 import { levelFromXp } from '../lib/xp'
 import { haptic } from '../lib/ui'
+import UserSheet from '../components/UserSheet'
 
-const Person = ({ p, children, to }) => {
+const Person = ({ p, children, to, onOpen }) => {
   const body = (
     <>
       <Avatar avatar={p.avatar} view="head" size={44} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-extrabold">@{p.username}</p>
-        <p className="truncate text-[11px] text-sub">{p.display_name ? `${p.display_name} · ` : ''}Niv {levelFromXp(p.xp ?? 0)}</p>
+        <p className="truncate text-[11px] text-sub">Niv {levelFromXp(p.xp ?? 0)}</p>
       </div>
     </>
   )
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-white/[.06] bg-card px-3.5 py-2.5">
-      {to ? <Link to={to} className="flex min-w-0 flex-1 items-center gap-3">{body}</Link> : body}
+      {onOpen ? <button onClick={()=>onOpen(p.username)} className="flex min-w-0 flex-1 items-center gap-3 text-left">{body}</button> : to ? <Link to={to} className="flex min-w-0 flex-1 items-center gap-3">{body}</Link> : body}
       <div className="flex flex-none gap-1.5">{children}</div>
     </div>
   )
@@ -29,6 +30,7 @@ const Mini = ({ children, tone = 'default', ...p }) => (
 )
 
 export default function Amigos() {
+  const [selected,setSelected]=useState(null)
   const [list, setList] = useState(null)
   const [q, setQ] = useState('')
   const [results, setResults] = useState(null)
@@ -69,7 +71,7 @@ export default function Amigos() {
           <div className="mt-3 space-y-2">
             {results.length === 0 && <p className="py-2 text-center text-xs text-sub">No encontramos a nadie con “{term}”.</p>}
             {results.map((u) => (
-              <Person key={u.id} p={u} to={u.relation === 'friend' ? `/u/${u.username}` : undefined}>
+              <Person onOpen={setSelected} key={u.id} p={u} to={u.relation === 'friend' ? `/u/${u.username}` : undefined}>
                 {u.relation === 'none' && <Mini tone="primary" onClick={() => run(() => api.sendFriendRequest(u.username), `Solicitud enviada a @${u.username}`)}>Agregar</Mini>}
                 {u.relation === 'sent' && <Mini disabled>Enviada</Mini>}
                 {u.relation === 'received' && <Mini tone="primary" onClick={() => run(() => api.sendFriendRequest(u.username), `Ahora eres amigo de @${u.username}`)}>Aceptar</Mini>}
@@ -87,7 +89,7 @@ export default function Amigos() {
         <section className="space-y-2">
           <h2 className="text-sm font-extrabold">Solicitudes recibidas <span className="font-semibold text-sub">· {incoming.length}</span></h2>
           {incoming.map((f) => (
-            <Person key={f.friendship_id} p={f}>
+            <Person onOpen={setSelected} key={f.friendship_id} p={f}>
               <Mini tone="primary" onClick={() => run(() => api.respondFriendRequest(f.friendship_id, true), `Ahora eres amigo de @${f.username}`)}>Aceptar</Mini>
               <Mini onClick={() => run(() => api.respondFriendRequest(f.friendship_id, false))}>Rechazar</Mini>
             </Person>
@@ -99,7 +101,7 @@ export default function Amigos() {
         <section className="space-y-2">
           <h2 className="text-sm font-extrabold">Enviadas <span className="font-semibold text-sub">· {outgoing.length}</span></h2>
           {outgoing.map((f) => (
-            <Person key={f.friendship_id} p={f}><Mini onClick={() => run(() => api.removeFriendship(f.friendship_id))}>Cancelar</Mini></Person>
+            <Person onOpen={setSelected} key={f.friendship_id} p={f}><Mini onClick={() => run(() => api.removeFriendship(f.friendship_id))}>Cancelar</Mini></Person>
           ))}
         </section>
       )}
@@ -109,7 +111,7 @@ export default function Amigos() {
           <h2 className="text-sm font-extrabold">Mis amigos <span className="font-semibold text-sub">· {friends.length}</span></h2>
           {friends.length === 0 && <p className="rounded-2xl border border-dashed border-line px-4 py-6 text-center text-xs text-sub">Busca a alguien arriba para enviarle una solicitud.</p>}
           {friends.map((f) => (
-            <Person key={f.friendship_id} p={f} to={`/u/${f.username}`}>
+            <Person onOpen={setSelected} key={f.friendship_id} p={f} to={`/u/${f.username}`}>
               {removing === f.friendship_id
                 ? <><Mini tone="danger" onClick={() => { setRemoving(null); run(() => api.removeFriendship(f.friendship_id), `Eliminaste a @${f.username}`) }}>Eliminar</Mini><Mini onClick={() => setRemoving(null)}>No</Mini></>
                 : <Mini aria-label={`Eliminar a ${f.username}`} onClick={() => setRemoving(f.friendship_id)}>⋯</Mini>}
@@ -117,6 +119,7 @@ export default function Amigos() {
           ))}
         </section>
       )}
+      {selected && <UserSheet username={selected} onClose={()=>setSelected(null)} onChanged={load}/>}
     </div>
   )
 }

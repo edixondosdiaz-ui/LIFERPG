@@ -14,6 +14,12 @@ import Perfil from './pages/Perfil'
 import Amigos from './pages/Amigos'
 import FriendProfile from './pages/FriendProfile'
 import Onboarding from './pages/Onboarding'
+import Progreso from './pages/Progreso'
+import Tienda from './pages/perfil/Tienda'
+import Ajustes from './pages/perfil/Ajustes'
+import Recovery from './pages/Recovery'
+import Premium from './pages/Premium'
+import Running from './pages/Running'
 
 // Si no hay sesión muestra el login; si la hay, muestra la app con su menú
 function Gate() {
@@ -29,15 +35,22 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="recuperar" element={<Recovery />} />
+        <Route path="restablecer" element={<Recovery reset />} />
         <Route element={<Gate />}>
           <Route index element={<Dashboard />} />
           <Route path="pilares" element={<Pilares />} />
           <Route path="pilares/fuerza" element={<Strength />} />
           <Route path="pilares/salud" element={<Salud />} />
+          <Route path="pilares/salud/correr" element={<Running />} />
           <Route path="pilares/educacion" element={<Educacion />} />
           <Route path="pilares/finanzas" element={<Finanzas />} />
           <Route path="pilares/habitos" element={<Habits />} />
           <Route path="ranking" element={<Ranking />} />
+          <Route path="progreso" element={<Progreso />} />
+          <Route path="tienda" element={<Tienda />} />
+          <Route path="configuracion" element={<Ajustes />} />
+          <Route path="premium" element={<Premium />} />
           <Route path="amigos" element={<Amigos />} />
           <Route path="u/:username" element={<FriendProfile />} />
           <Route path="perfil/:tab?" element={<Perfil />} />

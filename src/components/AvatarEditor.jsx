@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import OwnedAvatarItems from './OwnedAvatarItems'
 import Avatar from './Avatar'
 import { haptic } from '../lib/ui'
 import {
-  ACCESSORIES, AESTHETICS, BEARDS, EYE_COLORS, FACES, HAIRS, HAIR_COLORS, SKINS, normalizeAvatar,
+  AESTHETICS, BEARDS, EYE_COLORS, FACES, HAIRS, HAIR_COLORS, SKINS, SHIRT_COLORS, normalizeAvatar, randomAvatar,
 } from '../lib/avatar'
 
 const TABS = [
@@ -10,8 +11,7 @@ const TABS = [
   { id: 'pelo', label: 'Cabello' },
   { id: 'ojos', label: 'Ojos' },
   { id: 'barba', label: 'Barba' },
-  { id: 'accesorios', label: 'Accesorios' },
-  { id: 'estetica', label: 'Estética' },
+  { id: 'estetica', label: 'Ropa base' },
 ]
 
 function Swatches({ colors, value, onPick }) {
@@ -44,7 +44,7 @@ const Group = ({ title, children }) => (
 )
 
 // Editor con vista previa en vivo. `equipped` = objetos de tienda ya equipados (se ven en la previa).
-export default function AvatarEditor({ value, onChange, equipped = [] }) {
+export default function AvatarEditor({ value, onChange, equipped = [], canShop = false }) {
   const [tab, setTab] = useState('rostro')
   const a = normalizeAvatar(value)
   const set = (k) => (v) => { haptic(); onChange({ ...a, [k]: v }) }
@@ -54,6 +54,8 @@ export default function AvatarEditor({ value, onChange, equipped = [] }) {
       <div className="relative mx-auto grid place-items-center overflow-hidden rounded-[28px] border border-white/[.08] bg-card py-4">
         <Avatar avatar={a} equipped={equipped} view="full" size={250} rounded />
       </div>
+      <button type="button" className="w-full rounded-2xl border border-pu/30 py-3 text-sm font-bold text-pu-light" onClick={() => onChange(randomAvatar())}>Aleatorio</button>
+      <p className="text-xs text-sub">Los rasgos base se pueden editar gratis. Los objetos equipados se muestran encima de la ropa y peinado base.</p>
 
       <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
         {TABS.map((t) => (
@@ -75,11 +77,7 @@ export default function AvatarEditor({ value, onChange, equipped = [] }) {
         </>}
         {tab === 'ojos' && <Group title="Color de ojos"><Swatches colors={EYE_COLORS} value={a.eyes} onPick={set('eyes')} /></Group>}
         {tab === 'barba' && <Group title="Barba"><Chips options={BEARDS} value={a.beard} onPick={set('beard')} /></Group>}
-        {tab === 'accesorios' && <>
-          <Group title="Accesorio"><Chips options={ACCESSORIES} value={a.accessory} onPick={set('accessory')} /></Group>
-          <p className="text-xs text-sub">Gafas, mochilas, relojes y marcos están en la Tienda.</p>
-        </>}
-        {tab === 'estetica' && <Group title="Estética general">
+        {tab === 'estetica' && <><Group title="Color de ropa base"><Swatches colors={SHIRT_COLORS} value={a.shirtColor} onPick={set('shirtColor')} /></Group><Group title="Estética general">
           <div className="grid grid-cols-2 gap-2.5">
             {Object.entries(AESTHETICS).map(([id, e]) => (
               <button key={id} type="button" onClick={() => set('aesthetic')(id)}
@@ -89,8 +87,9 @@ export default function AvatarEditor({ value, onChange, equipped = [] }) {
               </button>
             ))}
           </div>
-        </Group>}
+        </Group></>}
       </div>
+      {canShop && <OwnedAvatarItems />}
     </div>
   )
 }

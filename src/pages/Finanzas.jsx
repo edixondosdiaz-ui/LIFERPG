@@ -97,7 +97,7 @@ function Summary({ tx, goals, goSection }) {
 }
 
 /* ------------------------------- Movimientos ------------------------------ */
-function Movements({ tx, goals, recurring, reload, notify }) {
+function Movements({ tx, goals, recurring, reload, notify, historyOnly = false }) {
   const { refreshProfile } = useAuth()
   const t = todayStr()
   const [kind, setKind] = useState('gasto')
@@ -118,6 +118,7 @@ function Movements({ tx, goals, recurring, reload, notify }) {
 
   async function submit(e) {
     e.preventDefault()
+    if (busy) return
     setBusy(true)
     try {
       const goal = goals.find((g) => g.id === goalId)
@@ -143,8 +144,8 @@ function Movements({ tx, goals, recurring, reload, notify }) {
 
   return (
     <div className="space-y-4">
-      <Card title="Nuevo movimiento">
-        <form onSubmit={submit} className="space-y-3">
+      {!historyOnly && <div id="movimiento" className="scroll-mt-24"><Card title="Nuevo movimiento">
+        <form id="finance-movement" onSubmit={submit} className="space-y-3">
           <div className="grid grid-cols-3 gap-1.5">
             {Object.entries(KINDS).map(([k, v]) => (
               <button key={k} type="button" onClick={() => pickKind(k)} aria-pressed={kind === k}
@@ -152,7 +153,7 @@ function Movements({ tx, goals, recurring, reload, notify }) {
                 style={kind === k ? { background: v.color + '26', borderColor: v.color, color: v.color } : { background: 'rgba(255,255,255,.05)', borderColor: 'rgba(255,255,255,.1)', color: '#8b91a5' }}>{v.label}</button>
             ))}
           </div>
-          <input className="field text-lg font-bold" type="number" inputMode="decimal" min="1" step="any" required placeholder="Monto en COP" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <input className="field !py-5 !text-3xl font-bold" type="number" inputMode="decimal" min="1" step="any" required placeholder="Monto en COP" value={amount} onChange={(e) => setAmount(e.target.value)} />
 
           {kind === 'ahorro' ? (
             <div>
@@ -165,7 +166,7 @@ function Movements({ tx, goals, recurring, reload, notify }) {
           ) : (
             <div>
               <p className="mb-1.5 text-[10px] font-bold text-sub">Categoría</p>
-              <div className="flex flex-wrap gap-1.5">{(kind === 'gasto' ? EXPENSE_CATS : INCOME_CATS).map((c) => <Chip key={c} active={category === c} color={KINDS[kind].color} onClick={() => setCategory(c)}>{CAT_ICON[c]} {c}</Chip>)}</div>
+              <div className="flex flex-wrap gap-1.5">{[...new Set([...tx.filter(x => x.kind === kind).map(x => x.category), ...(kind === 'gasto' ? EXPENSE_CATS : INCOME_CATS)])].slice(0,12).map((c) => <Chip key={c} active={category === c} color={KINDS[kind].color} onClick={() => setCategory(c)}>{CAT_ICON[c]} {c}</Chip>)}</div>
             </div>
           )}
 
@@ -182,9 +183,9 @@ function Movements({ tx, goals, recurring, reload, notify }) {
           )}
           <button className="btn w-full" disabled={busy || !Number(amount)}>{busy ? 'Guardando…' : `Registrar ${KINDS[kind].label.toLowerCase()}${Number(amount) ? ` · ${money(Number(amount))}` : ''}`}</button>
         </form>
-      </Card>
+      </Card></div>}
 
-      {recurring.length > 0 && (
+      {!historyOnly && recurring.length > 0 && (
         <Card title="Movimientos periódicos">
           <div className="space-y-1.5">
             {recurring.map((r) => (
@@ -199,7 +200,7 @@ function Movements({ tx, goals, recurring, reload, notify }) {
         </Card>
       )}
 
-      <Card title="Historial">
+      {historyOnly && <Card title="Historial">
         <div className="flex flex-wrap gap-1.5">
           {[['todos', 'Todos'], ['ingreso', 'Ingresos'], ['gasto', 'Gastos'], ['ahorro', 'Ahorros']].map(([k, l]) => <Chip key={k} active={filter === k} color={GOLD} onClick={() => { setFilter(k); setLimit(30) }}>{l}</Chip>)}
         </div>
@@ -224,7 +225,7 @@ function Movements({ tx, goals, recurring, reload, notify }) {
             {shown.length > limit && <button onClick={() => setLimit(limit + 30)} className="w-full rounded-2xl border border-white/10 bg-white/5 py-2.5 text-xs font-bold">Ver más</button>}
           </div>
         )}
-      </Card>
+      </Card>}
     </div>
   )
 }
@@ -313,12 +314,14 @@ function Goals({ tx, goals, reload, notify }) {
 /* -------------------------------- Pantalla -------------------------------- */
 export default function Finanzas() {
   const { refreshProfile } = useAuth()
-  const [tab, setTab] = useState('resumen')
   const [tx, setTx] = useState([])
   const [goals, setGoals] = useState([])
   const [recurring, setRecurring] = useState([])
   const [ready, setReady] = useState(false)
   const [toast, notify] = useToast()
+  useEffect(() => {
+    if (ready && window.location.hash === '#movimiento') document.getElementById('movimiento')?.scrollIntoView({behavior:'smooth'})
+  }, [ready])
 
   const reload = useCallback(async () => {
     const [a, b, c] = await Promise.all([px.listTransactions(), px.listGoals(), px.listRecurring()])
@@ -339,11 +342,13 @@ export default function Finanzas() {
   return (
     <div className="space-y-5">
       <PillarHeader pillar="finanzas" title="Finanzas" kicker="Ingresos, gastos y ahorro" color={GOLD} icon="💰" />
-      <Tabs color={GOLD} value={tab} onChange={setTab} items={[{ id: 'resumen', label: '📊 Resumen' }, { id: 'movs', label: '🧾 Movimientos' }, { id: 'metas', label: '🎯 Metas' }]} />
-      {!ready ? <p className="py-8 text-center text-sm text-sub">Cargando…</p>
-        : tab === 'resumen' ? <Summary tx={tx} goals={goals} goSection={() => setTab('metas')} />
-        : tab === 'movs' ? <Movements tx={tx} goals={goals} recurring={recurring} reload={reload} notify={notify} />
-        : <Goals tx={tx} goals={goals} reload={reload} notify={notify} />}
+      {!ready ? <p className="py-8 text-center text-sm text-sub">Cargando…</p> : <>
+        <section className="surface sticky top-20 z-10 space-y-3 !bg-card p-4"><div className="grid grid-cols-2 gap-3"><Stat label="Balance del mes" value={money(flow(between(tx,monthStart(),todayStr())).in-flow(between(tx,monthStart(),todayStr())).out)} /><Stat label="Ahorro del mes" value={money(flow(between(tx,monthStart(),todayStr())).save)} color={SAVING} /></div><button type="submit" form="finance-movement" className="btn w-full">Registrar movimiento</button></section>
+        <Movements tx={tx} goals={goals} recurring={recurring} reload={reload} notify={notify} />
+        <div id="metas" className="scroll-mt-24"><Goals tx={tx} goals={goals} reload={reload} notify={notify} /></div>
+        <Summary tx={tx} goals={goals} goSection={() => document.getElementById('metas')?.scrollIntoView({behavior:'smooth'})} />
+        <Movements tx={tx} goals={goals} recurring={recurring} reload={reload} notify={notify} historyOnly />
+      </>}
       <Toast msg={toast} />
     </div>
   )

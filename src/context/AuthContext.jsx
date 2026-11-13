@@ -1,5 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import * as api from '../services/api'
+import { supabase } from '../services/supabase'
+import { claimRewards } from '../services/economy'
+import { syncPremium } from '../services/social'
 
 const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
@@ -10,9 +13,18 @@ export function AuthProvider({ children }) {
   const [equipped, setEquipped] = useState([]) // objetos de tienda equipados (data{} de cada uno)
   const [streak, setStreak] = useState(0)
   const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(event => {
+      if (event === 'SIGNED_OUT') { setUser(null); setProfile(null); setEquipped([]); setStreak(0) }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   // Perfil + extras. Los extras son tolerantes: si la migración aún no se corrió, la app sigue abriendo.
   const refreshProfile = useCallback(async () => {
+    // Es idempotente en el servidor. La ausencia de la migración no bloquea auth.
+    await claimRewards().catch(() => {})
+    await syncPremium().catch(() => {})
     const p = await api.getProfile().catch(() => null)
     setProfile(p)
     if (p?.onboarding_completed) {

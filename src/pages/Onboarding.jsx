@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import * as api from '../services/api'
+import { usernameStatus } from '../services/economy'
 import Avatar from '../components/Avatar'
 import AvatarEditor from '../components/AvatarEditor'
 import { DEFAULT_AVATAR } from '../lib/avatar'
@@ -14,9 +15,9 @@ export default function Onboarding() {
   const { user, profile, refreshProfile, signOut } = useAuth()
   const [step, setStep] = useState(0)
   const [username, setUsername] = useState(profile?.username ?? '')
-  const [display, setDisplay] = useState(profile?.display_name && !profile.display_name.includes('@') ? profile.display_name : '')
   const [avatar, setAvatar] = useState({ ...DEFAULT_AVATAR, ...(profile?.avatar || {}) })
   const [avail, setAvail] = useState('idle') // idle | checking | ok | taken | invalid
+  const [serverHint, setServerHint] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -24,14 +25,16 @@ export default function Onboarding() {
 
   // Disponibilidad en vivo (con espera para no consultar en cada tecla)
   useEffect(() => {
+    setServerHint('')
     if (!u) return setAvail('idle')
     if (!USER_RE.test(u)) return setAvail('invalid')
     setAvail('checking')
+    let active = true
     const t = setTimeout(async () => {
-      try { setAvail((await api.usernameAvailable(u)) ? 'ok' : 'taken') }
-      catch (e) { setAvail('idle'); setErr(e.message) }
+      try { const result=await usernameStatus(u); if(active) {setAvail(result.available ? 'ok':'taken');setServerHint(result.message)} }
+      catch (e) { if(active) {setAvail('idle');setErr(e.message)} }
     }, 400)
-    return () => clearTimeout(t)
+    return () => {active=false;clearTimeout(t)}
   }, [u])
 
   const hint = {
@@ -46,7 +49,7 @@ export default function Onboarding() {
   async function finish() {
     setBusy(true); setErr('')
     try {
-      await api.completeOnboarding({ username: u, displayName: display, avatar })
+      await api.completeOnboarding({ username: u, displayName: '', avatar })
       haptic([20, 40, 20])
       await refreshProfile() // el Gate de App.jsx pasa a la app al ver onboarding_completed
     } catch (e) {
@@ -85,7 +88,7 @@ export default function Onboarding() {
             <Avatar avatar={avatar} view="head" size={64} />
             <div className="min-w-0">
               <p className="truncate text-lg font-extrabold">@{u || 'tu_usuario'}</p>
-              <p className="truncate text-xs text-sub">{display || 'Nombre visible (opcional)'}</p>
+              <p className="truncate text-xs text-sub">Tu nombre visible es tu @usuario</p>
             </div>
           </div>
 
@@ -96,12 +99,7 @@ export default function Onboarding() {
               <input id="username" className="field !pl-9" autoCapitalize="none" autoCorrect="off" spellCheck="false" maxLength={20}
                 placeholder="tu_usuario" value={username} onChange={(e) => setUsername(e.target.value.replace(/\s/g, ''))} />
             </div>
-            <p className={`mt-1.5 text-xs font-semibold ${hintColor}`}>{hint}</p>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-bold text-sub" htmlFor="display">Nombre visible <span className="font-medium">(opcional)</span></label>
-            <input id="display" className="field" maxLength={40} placeholder="Como quieres que te llamemos" value={display} onChange={(e) => setDisplay(e.target.value)} />
+            <p className={`mt-1.5 text-xs font-semibold ${hintColor}`}>{serverHint || hint}</p>
           </div>
 
           {err && <p className="text-xs font-semibold text-red-300">{err}</p>}
@@ -129,7 +127,6 @@ export default function Onboarding() {
             <div className="pointer-events-none absolute -top-16 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-pu/30 blur-3xl" />
             <div className="relative mx-auto w-fit"><Avatar avatar={avatar} view="bust" size={170} /></div>
             <p className="relative mt-4 text-2xl font-extrabold tracking-tight">@{u}</p>
-            {display && <p className="relative text-sm text-sub">{display}</p>}
             <div className="relative mt-5 grid grid-cols-2 gap-2.5">
               <div className="rounded-2xl border border-white/[.08] bg-white/5 py-3"><p className="text-xl font-extrabold">1</p><p className="text-[11px] text-sub">Nivel inicial</p></div>
               <div className="rounded-2xl border border-white/[.08] bg-white/5 py-3"><p className="text-xl font-extrabold text-gold">150</p><p className="text-[11px] text-sub">Monedas de bienvenida</p></div>

@@ -1,3 +1,6 @@
+import Wellbeing from '../components/Wellbeing'
+import { Link } from 'react-router-dom'
+import * as ex from '../services/experience'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import * as px from '../services/pillars'
@@ -31,7 +34,7 @@ const fmtH = (h) => `${Math.floor(h)} h ${String(Math.round((h % 1) * 60)).padSt
 const L = (n) => `${(n / 1000).toLocaleString('es-CO', { maximumFractionDigits: 2 })} L`
 
 /* ---------------------------------- AGUA ---------------------------------- */
-function Water({ data, settings, reload, notify, saveSettings }) {
+function Water({ data, settings, reload, notify, saveSettings, enableNotifications, children }) {
   const t = todayStr()
   const { refreshProfile } = useAuth()
   const [custom, setCustom] = useState('')
@@ -63,13 +66,15 @@ function Water({ data, settings, reload, notify, saveSettings }) {
       if (p !== 'granted') return notify('Activa los permisos de notificación del navegador para recibir recordatorios', 'err')
     }
     if (min && typeof Notification === 'undefined') return notify('Este navegador no admite notificaciones', 'err')
+    if (min && Notification.permission !== 'granted') return notify('Activa el permiso de notificaciones del navegador', 'err')
+    if (min) await enableNotifications()
     await saveSettings({ water_reminder_min: min })
     notify(min ? `Recordatorio cada ${min} min mientras la app esté abierta` : 'Recordatorios desactivados')
   }
 
   return (
     <div className="space-y-4">
-      <Card>
+      <Card className="sticky top-20 z-10 !bg-card">
         <div className="flex items-center gap-5">
           <Ring pct={pct} color={BLUE} size={140}>
             <div><p className="text-3xl font-black leading-none">{Math.min(pct, 999)}%</p><p className="mt-1 text-[11px] text-sub">{L(total)} de {L(goal)}</p></div>
@@ -77,7 +82,7 @@ function Water({ data, settings, reload, notify, saveSettings }) {
           <div className="min-w-0 flex-1 space-y-2">
             <p className="text-xs text-sub">{total >= goal ? '¡Objetivo cumplido! Sigue hidratándote.' : `Te faltan ${L(goal - total)} para tu meta de hoy.`}</p>
             <div className="grid grid-cols-3 gap-1.5">
-              {[250, 500, 1000].map((ml) => (
+              {[250, 500, 750].map((ml) => (
                 <button key={ml} onClick={() => add(ml)} className="rounded-2xl border border-sky-400/25 bg-sky-400/10 py-2.5 text-xs font-extrabold text-sky-300 transition active:scale-95">
                   +{ml === 1000 ? '1 L' : `${ml} ml`}
                 </button>
@@ -127,6 +132,7 @@ function Water({ data, settings, reload, notify, saveSettings }) {
           </div>
         </div>
       </Card>
+      {children}
     </div>
   )
 }
@@ -137,7 +143,7 @@ function Sleep({ data, settings, reload, notify, saveSettings }) {
   const { refreshProfile } = useAuth()
   const goal = Number(settings.sleep_goal_h)
   const [date, setDate] = useState(t)
-  const [mode, setMode] = useState('horas')
+  const [mode, setMode] = useState('horario')
   const [bed, setBed] = useState('23:00')
   const [wake, setWake] = useState('07:00')
   const [hours, setHours] = useState('')
@@ -355,12 +361,12 @@ function Food({ data, settings, reload, notify, saveSettings }) {
 
 /* -------------------------------- PANTALLA -------------------------------- */
 export default function Salud() {
-  const [tab, setTab] = useState('agua')
   const [settings, setSettings] = useState(px.DEFAULT_SETTINGS)
+  const [notifications, setNotifications] = useState(false)
   const [data, setData] = useState({ water: [], sleep: [], meals: [] })
   const [ready, setReady] = useState(false)
   const [toast, notify] = useToast()
-  const waterRef = useRef({ total: 0, goal: 2500 })
+  const waterRef = useRef({ total: 0, goal: 2000 })
 
   const reload = useCallback(async () => {
     const since = addDays(todayStr(), -29)
@@ -369,7 +375,7 @@ export default function Salud() {
   }, [])
 
   useEffect(() => {
-    Promise.all([px.getSettings().then(setSettings), reload()]).catch((e) => notify(e.message, 'err')).finally(() => setReady(true))
+    Promise.all([px.getSettings().then(setSettings), ex.getPreferences().then(p => setNotifications(p?.notifications ?? (typeof Notification !== 'undefined' && Notification.permission === 'granted'))), reload()]).catch((e) => notify(e.message, 'err')).finally(() => setReady(true))
   }, [reload, notify])
 
   const saveSettings = useCallback(async (patch) => {
@@ -380,19 +386,24 @@ export default function Salud() {
   waterRef.current = { total: sum(data.water.filter((r) => r.logged_on === todayStr()), (r) => r.ml), goal: settings.water_goal_ml }
   useEffect(() => {
     const min = settings.water_reminder_min
-    if (!min || typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+    if (!notifications || !min || typeof Notification === 'undefined' || Notification.permission !== 'granted') return
     const id = setInterval(() => {
       if (waterRef.current.total < waterRef.current.goal) new Notification('💧 LifeRPG', { body: 'Es buen momento para tomar agua.' })
     }, min * 60000)
     return () => clearInterval(id)
-  }, [settings.water_reminder_min])
+  }, [settings.water_reminder_min, notifications])
 
-  const props = { data, settings, reload, notify, saveSettings }
+  const enableNotifications = async () => {
+    const p = await ex.getPreferences()
+    await ex.savePreferences({units:p?.units ?? 'km',profile_visibility:p?.profile_visibility ?? 'friends',notifications:true})
+    setNotifications(true)
+  }
+  const props = { data, settings, reload, notify, saveSettings, enableNotifications }
   return (
     <div className="space-y-5">
       <PillarHeader pillar="vitalidad" title="Salud" kicker="Agua, sueño y alimentación" color={GREEN} icon="❤️" />
-      <Tabs color={GREEN} value={tab} onChange={setTab} items={[{ id: 'agua', label: '💧 Agua' }, { id: 'sueno', label: '😴 Sueño' }, { id: 'comida', label: '🥗 Comida' }]} />
-      {!ready ? <p className="py-8 text-center text-sm text-sub">Cargando…</p> : tab === 'agua' ? <Water {...props} /> : tab === 'sueno' ? <Sleep {...props} /> : <Food {...props} />}
+      <Link to="/pilares/salud/correr" className="btn block w-full text-center">Correr / Caminar</Link>
+      {!ready ? <p className="py-8 text-center text-sm text-sub">Cargando…</p> : <Water {...props}><Sleep {...props} /><Wellbeing notify={notify} /><Food {...props} /></Water>}
       <Toast msg={toast} />
     </div>
   )

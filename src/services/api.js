@@ -8,7 +8,7 @@ export function unwrap({ data, error }) {
   if (error) {
     // PGRST202 = PostgREST no ve la función (migración sin correr o caché de esquema desactualizada)
     if (error.code === 'PGRST202' || error.code === 'PGRST205') {
-      throw new Error(`Supabase no encuentra esta función (${error.code}). Ejecuta las migraciones de supabase/ (la última es 03_pilares.sql) y luego: notify pgrst, 'reload schema';`)
+      throw new Error(`Supabase no encuentra esta función (${error.code}). Ejecuta las migraciones de supabase/ (la última es 08_correr_caminar.sql) y luego: notify pgrst, 'reload schema';`)
     }
     // Cualquier otro error se muestra tal cual para poder diagnosticarlo
     throw new Error(`${error.message} [${error.code ?? 'sin código'}]`)
@@ -60,22 +60,26 @@ export async function logHabit({ pillar, habit }) {
 
 /* ---------- Fuerza ---------- */
 
-export async function listExercises(weekday) {
+export async function listExercises(weekday, routineId = null) {
   return unwrap(
     await supabase
       .from('exercises')
       .select('id, name, weekday')
       .eq('weekday', weekday)
+      .match(routineId ? { routine_id: routineId } : {})
       .order('created_at', { ascending: true })
   )
 }
 
-export async function addExercise({ weekday, name }) {
-  return unwrap(await supabase.from('exercises').insert({ weekday, name: name.trim() }))
+export async function addExercise({ weekday, name, routineId = null }) {
+  return unwrap(await supabase.from('exercises').insert({ weekday, name: name.trim(), routine_id: routineId }))
 }
 
 export async function deleteExercise(id) {
   return unwrap(await supabase.from('exercises').delete().eq('id', id))
+}
+export async function renameExercise(id, name) {
+  return unwrap(await supabase.from('exercises').update({ name: name.trim().slice(0,80) }).eq('id',id))
 }
 
 export async function listSetsToday(exerciseId) {
@@ -162,7 +166,7 @@ export async function updateDisplayName(displayName) {
 }
 
 export async function getStreak() {
-  return unwrap(await supabase.rpc('get_streak')) ?? 0
+  return unwrap(await supabase.rpc('my_current_streak')) ?? 0
 }
 
 export async function getMyEquipped() {
@@ -218,5 +222,5 @@ export async function listFriendships() {
 }
 
 export async function getFriendProfile(username) {
-  return unwrap(await supabase.rpc('get_friend_profile', { p_username: username }))
+  return unwrap(await supabase.rpc('visible_profile', { p_username: username }))
 }

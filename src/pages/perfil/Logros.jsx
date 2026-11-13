@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import * as api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
-function Card({ a }) {
-  const pct = Math.round((a.progress / a.target) * 100)
+export function AchievementCard({ a }) {
+  const pct = a.unlocked ? 100 : Math.min(100, Math.round((a.progress / a.target) * 100))
   const state = a.unlocked ? 'done' : a.progress > 0 ? 'prog' : 'lock'
   const fill = state === 'done' ? 100 : pct
 
@@ -16,9 +16,7 @@ function Card({ a }) {
           <p className={`truncate text-sm font-extrabold ${state === 'lock' ? 'text-sub' : ''}`}>{a.name}</p>
           <p className="text-[11px] text-ink/60">{a.description}</p>
           <p className="mt-1 text-[11px] font-bold">
-            {state === 'done' && <span className="text-gold">✓ Desbloqueado · +{a.reward_coins} monedas</span>}
-            {state === 'prog' && <span className="text-pu-light">{pct}% completado · {a.progress.toLocaleString('es-CO')}/{a.target.toLocaleString('es-CO')}</span>}
-            {state === 'lock' && <span className="text-sub">0/{a.target.toLocaleString('es-CO')} · +{a.reward_coins} monedas</span>}
+            <span className={state === 'done' ? 'text-gold' : state === 'prog' ? 'text-pu-light' : 'text-sub'}>{a.unlocked ? '✓ ' : ''}{a.unlocked ? a.target : a.progress}/{a.target} · {pct}% · +{a.reward_coins} monedas</span>
           </p>
         </div>
       </div>
@@ -31,7 +29,7 @@ function Section({ title, count, items }) {
   return (
     <section className="space-y-2.5">
       <h2 className="text-sm font-extrabold">{title} <span className="font-semibold text-sub">· {count}</span></h2>
-      {items.map((a) => <Card key={a.id} a={a} />)}
+      {items.map((a) => <AchievementCard key={a.id} a={a} />)}
     </section>
   )
 }

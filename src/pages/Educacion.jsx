@@ -1,142 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import StudyFocus from '../components/StudyFocus'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import * as api from '../services/api'
 import * as px from '../services/pillars'
 import { BarChart, Heatmap, HBars, Meter, Ring } from '../components/charts'
-import { Card, Chip, Empty, GoalEditor, PillarHeader, Segment, Stat, Tabs, Toast, confirmDelete, useToast, xpText } from '../components/ui'
-import { addDays, clock, daysBetween, fmtDay, fmtHours, lastDays, streakOf, sum, today as todayStr, weekStart, weekdayLetter } from '../lib/dates'
-import { haptic } from '../lib/ui'
+import { Card, Chip, Empty, GoalEditor, PillarHeader, Stat, Tabs, Toast, confirmDelete, useToast, xpText } from '../components/ui'
+import { addDays, daysBetween, fmtDay, fmtHours, lastDays, streakOf, sum, today as todayStr, weekStart, weekdayLetter } from '../lib/dates'
 import { levelProgress } from '../lib/xp'
 
 const SKY = '#38bdf8'
 const DEFAULT_CATS = ['Matemáticas', 'Programación', 'Idiomas', 'Lectura', 'Ciencias', 'General']
 const PRIORITY = { alta: { label: 'Alta', color: '#f87171', w: 0 }, media: { label: 'Media', color: '#fbbf24', w: 1 }, baja: { label: 'Baja', color: '#34d399', w: 2 } }
-const TIMER_KEY = 'liferpg_study_timer'
-
-const loadTimer = () => { try { return JSON.parse(localStorage.getItem(TIMER_KEY)) } catch { return null } }
-const elapsedOf = (tm) => (tm ? tm.acc + (tm.status === 'running' ? Date.now() - tm.startedAt : 0) : 0)
-
-/* ------------------------- Cronómetro / Pomodoro -------------------------- */
-function Focus({ cats, onSaved, notify }) {
-  const [tm, setTm] = useState(loadTimer)
-  const [cfg, setCfg] = useState(() => loadTimer()?.cfg ?? { mode: 'pomodoro', focus: 25, brk: 5, topic: '', category: 'General' })
-  const [, tick] = useState(0)
-  const busy = useRef(false)
-
-  useEffect(() => {
-    if (tm) localStorage.setItem(TIMER_KEY, JSON.stringify(tm)); else localStorage.removeItem(TIMER_KEY)
-  }, [tm])
-
-  const save = useCallback(async (c, minutes) => {
-    const r = await px.logStudy({ topic: c.topic.trim(), category: c.category.trim() || 'General', mode: c.mode, minutes })
-    await onSaved()
-    return r
-  }, [onSaved])
-
-  // Reloj: refresca la pantalla y cierra la fase del Pomodoro cuando se agota el tiempo
-  useEffect(() => {
-    if (tm?.status !== 'running') return
-    const id = setInterval(async () => {
-      tick((n) => n + 1)
-      if (!tm.target || elapsedOf(tm) < tm.target || busy.current) return
-      busy.current = true
-      haptic(300)
-      try {
-        if (tm.phase === 'focus') {
-          const r = await save(tm.cfg, tm.cfg.focus)
-          const long = (tm.cycle + 1) % 4 === 0
-          const brk = long ? 15 : tm.cfg.brk
-          notify(`🍅 Pomodoro completado · ${tm.cfg.focus} min${xpText(r)}`, 'pr')
-          setTm({ ...tm, phase: 'break', status: 'running', startedAt: Date.now(), acc: 0, cycle: tm.cycle + 1, target: brk * 60000 })
-        } else {
-          notify('Descanso terminado. ¿Otra ronda?')
-          setTm(null)
-        }
-      } catch (e) { notify(e.message, 'err'); setTm({ ...tm, status: 'paused', acc: tm.target, startedAt: null }) } finally { busy.current = false }
-    }, 500)
-    return () => clearInterval(id)
-  }, [tm, save, notify])
-
-  const start = () => setTm({
-    status: 'running', phase: 'focus', startedAt: Date.now(), acc: 0, cycle: tm?.cycle ?? 0, cfg,
-    target: cfg.mode === 'pomodoro' ? cfg.focus * 60000 : null,
-  })
-  const pause = () => setTm({ ...tm, status: 'paused', acc: elapsedOf(tm), startedAt: null })
-  const resume = () => setTm({ ...tm, status: 'running', startedAt: Date.now() })
-  const discard = () => { if (confirmDelete('¿Descartar esta sesión sin guardar?')) setTm(null) }
-  const skipBreak = () => setTm(null)
-
-  async function stopAndSave() {
-    const minutes = Math.round(elapsedOf(tm) / 60000)
-    if (minutes < 1) { setTm(null); return notify('Sesión descartada: dura menos de 1 minuto', 'err') }
-    try {
-      const r = await save(tm.cfg, minutes)
-      notify(`Sesión guardada · ${fmtHours(minutes)}${xpText(r)}`, 'pr')
-      setTm(null)
-    } catch (e) { notify(e.message, 'err') }
-  }
-
-  const active = !!tm
-  const isBreak = tm?.phase === 'break'
-  const el = elapsedOf(tm)
-  const remaining = tm?.target ? Math.max(0, tm.target - el) : 0
-  const shown = tm?.target ? remaining / 1000 : el / 1000
-  const pct = !tm ? 0 : tm.target ? (el / tm.target) * 100 : ((el % 3600000) / 3600000) * 100
-  const color = isBreak ? '#34d399' : SKY
-
-  return (
-    <div className="space-y-4">
-      <Card>
-        <div className="flex flex-col items-center gap-4">
-          <Ring pct={pct} color={color} size={190} stroke={12}>
-            <div>
-              <p className="text-5xl font-black tabular-nums tracking-tight">{clock(active ? shown : (cfg.mode === 'pomodoro' ? cfg.focus * 60 : 0))}</p>
-              <p className="mt-1 text-[11px] font-bold text-sub">
-                {!active ? (cfg.mode === 'pomodoro' ? 'Listo para enfocarte' : 'Cronómetro libre') : isBreak ? 'Descanso' : tm.status === 'paused' ? 'En pausa' : 'Enfocado'}
-              </p>
-            </div>
-          </Ring>
-
-          {active && <p className="text-center text-xs text-sub">{tm.cfg.topic} · {tm.cfg.category}{tm.cfg.mode === 'pomodoro' ? ` · ronda ${isBreak ? tm.cycle : tm.cycle + 1}` : ''}</p>}
-
-          {active ? (
-            <div className="grid w-full grid-cols-2 gap-2">
-              {tm.status === 'running'
-                ? <button onClick={pause} className="rounded-2xl border border-white/10 bg-white/5 py-3 text-sm font-bold transition active:scale-95">⏸ Pausar</button>
-                : <button onClick={resume} className="btn">▶ Reanudar</button>}
-              {isBreak
-                ? <button onClick={skipBreak} className="btn">Saltar descanso</button>
-                : <button onClick={stopAndSave} className="btn">✓ Terminar y guardar</button>}
-              <button onClick={discard} className="col-span-2 py-1 text-[11px] font-bold text-sub transition hover:text-red-300">Descartar sesión</button>
-            </div>
-          ) : (
-            <button onClick={start} disabled={!cfg.topic.trim()} className="btn w-full">Iniciar {cfg.mode === 'pomodoro' ? 'Pomodoro' : 'sesión libre'}</button>
-          )}
-        </div>
-      </Card>
-
-      {!active && (
-        <Card title="Configurar sesión">
-          <Tabs color={SKY} value={cfg.mode} onChange={(mode) => setCfg({ ...cfg, mode })} items={[{ id: 'pomodoro', label: '🍅 Pomodoro' }, { id: 'libre', label: '⏱ Libre' }]} />
-          <input className="field" placeholder="¿Qué vas a estudiar? (tema)" maxLength={80} value={cfg.topic} onChange={(e) => setCfg({ ...cfg, topic: e.target.value })} />
-          <div>
-            <p className="mb-1.5 text-[10px] font-bold text-sub">Categoría</p>
-            <div className="mb-2 flex flex-wrap gap-1.5">{cats.map((c) => <Chip key={c} active={cfg.category === c} color={SKY} onClick={() => setCfg({ ...cfg, category: c })}>{c}</Chip>)}</div>
-            <input className="field" placeholder="O escribe otra categoría" maxLength={40} value={cats.includes(cfg.category) ? '' : cfg.category} onChange={(e) => setCfg({ ...cfg, category: e.target.value })} />
-          </div>
-          {cfg.mode === 'pomodoro' && (
-            <div className="grid grid-cols-2 gap-3">
-              <div><p className="mb-1.5 text-[10px] font-bold text-sub">Enfoque</p><Segment color={SKY} value={cfg.focus} onChange={(focus) => setCfg({ ...cfg, focus })} options={[15, 25, 45, 50].map((n) => ({ id: n, label: `${n} min` }))} /></div>
-              <div><p className="mb-1.5 text-[10px] font-bold text-sub">Descanso</p><Segment color={SKY} value={cfg.brk} onChange={(brk) => setCfg({ ...cfg, brk })} options={[5, 10, 15].map((n) => ({ id: n, label: `${n} min` }))} /></div>
-            </div>
-          )}
-          <p className="text-[11px] text-sub">Ganas 1 XP cada 2 minutos de estudio, más bonos por tu primera sesión del día y por cumplir tu objetivo semanal.</p>
-        </Card>
-      )}
-    </div>
-  )
-}
-
 /* --------------------------------- Tareas --------------------------------- */
 function Tasks({ tasks, reload, notify }) {
   const { refreshProfile } = useAuth()
@@ -265,6 +139,8 @@ function Progress({ sessions, tasks, settings, saveSettings, reload, notify }) {
 
       <div className="grid grid-cols-2 gap-2">
         <Stat label="Hoy" value={fmtHours(minToday)} color={SKY} />
+        <Stat label="Esta semana" value={fmtHours(minWeek)} color={SKY} />
+        <Stat label="Este mes" value={fmtHours(sum(sessions.filter(s=>s.studied_on>=`${t.slice(0,7)}-01`),s=>s.minutes))} color={SKY} />
         <Stat label="Racha de estudio" value={`${streak} ${streak === 1 ? 'día' : 'días'}`} />
         <Stat label="Total (90 días)" value={fmtHours(totalMin)} />
         <Stat label="Tareas hechas" value={`${tasksDone}/${tasks.length}`} sub={tasks.length ? `${Math.round((tasksDone / tasks.length) * 100)}% cumplido` : undefined} />
@@ -313,7 +189,6 @@ function Progress({ sessions, tasks, settings, saveSettings, reload, notify }) {
 /* -------------------------------- Pantalla -------------------------------- */
 export default function Educacion() {
   const { refreshProfile } = useAuth()
-  const [tab, setTab] = useState('enfocar')
   const [sessions, setSessions] = useState([])
   const [tasks, setTasks] = useState([])
   const [settings, setSettings] = useState(px.DEFAULT_SETTINGS)
@@ -335,16 +210,16 @@ export default function Educacion() {
   }, [notify])
 
   const cats = [...new Set([...DEFAULT_CATS, ...sessions.map((s) => s.category)])].slice(0, 12)
-  const pendingCount = tasks.filter((x) => !x.done).length
 
   return (
     <div className="space-y-5">
       <PillarHeader pillar="intelecto" title="Educación" kicker="Enfoque, tareas y aprendizaje" color={SKY} icon="🧠" />
-      <Tabs color={SKY} value={tab} onChange={setTab} items={[{ id: 'enfocar', label: '⏱ Enfocar' }, { id: 'tareas', label: `✅ Tareas${pendingCount ? ` (${pendingCount})` : ''}` }, { id: 'progreso', label: '📈 Progreso' }]} />
-      {!ready ? <p className="py-8 text-center text-sm text-sub">Cargando…</p>
-        : tab === 'enfocar' ? <Focus cats={cats} onSaved={afterSave} notify={notify} />
-        : tab === 'tareas' ? <Tasks tasks={tasks} reload={reload} notify={notify} />
-        : <Progress sessions={sessions} tasks={tasks} settings={settings} saveSettings={saveSettings} reload={reload} notify={notify} />}
+      {!ready ? <p className="py-8 text-center text-sm text-sub">Cargando…</p> : <>
+        <StudyFocus cats={cats} last={sessions[0]} onSaved={afterSave} notify={notify}>
+        <Progress sessions={sessions} tasks={tasks} settings={settings} saveSettings={saveSettings} reload={reload} notify={notify} />
+        <Tasks tasks={tasks} reload={reload} notify={notify} />
+        </StudyFocus>
+      </>}
       <Toast msg={toast} />
     </div>
   )
