@@ -1,3 +1,4 @@
+import AchievementCard from '../components/AchievementCard'
 import { palette } from '../design/tokens'
 import StudyFocus from '../components/StudyFocus'
 import { useCallback, useEffect, useState } from 'react'
@@ -159,14 +160,7 @@ function Progress({ sessions, tasks, settings, saveSettings, reload, notify }) {
       {ach.length > 0 && (
         <Card title="Logros de estudio">
           <div className="space-y-2">
-            {ach.map((a) => (
-              <div key={a.id} className={`flex items-center gap-3 rounded-2xl border px-3 py-2.5 ${a.unlocked ? 'border-education/30 bg-education/10' : 'border-white/[.06] bg-card2/70'}`}>
-                <span className="text-2xl">{a.icon}</span>
-                <div className="min-w-0 flex-1"><p className="text-sm font-bold">{a.name}</p><p className="text-[11px] text-sub">{a.description}</p>
-                  {!a.unlocked && <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-education" style={{ width: `${(a.progress / a.target) * 100}%` }} /></div>}</div>
-                <span className="text-[11px] font-bold text-sub">{a.unlocked ? '✓' : `${a.progress}/${a.target}`}</span>
-              </div>
-            ))}
+            {ach.map(a=><AchievementCard key={a.id} a={a}/>)}
           </div>
         </Card>
       )}

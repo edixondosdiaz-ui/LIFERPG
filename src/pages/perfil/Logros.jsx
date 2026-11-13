@@ -1,29 +1,8 @@
-import { palette } from '../../design/tokens'
+import AchievementCard from '../../components/AchievementCard'
+export { default as AchievementCard } from '../../components/AchievementCard'
 import { useEffect, useState } from 'react'
 import * as api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
-
-export function AchievementCard({ a }) {
-  const pct = a.unlocked ? 100 : Math.min(100, Math.round((a.progress / a.target) * 100))
-  const state = a.unlocked ? 'done' : a.progress > 0 ? 'prog' : 'lock'
-  const fill = state === 'done' ? 100 : pct
-
-  return (
-    <div className={`relative overflow-hidden rounded-2xl border p-3.5 ${state === 'done' ? 'border-gold/50' : state === 'prog' ? 'border-pu/40' : 'border-white/[.06]'}`}
-      style={{ background: state === 'lock' ? palette.achievement.idle : `linear-gradient(90deg, ${state === 'done' ? palette.achievement.done : palette.achievement.progress} ${fill}%, ${palette.subtle} ${fill}%)` }}>
-      <div className="flex items-center gap-3">
-        <span className={`grid h-12 w-12 flex-none place-items-center rounded-2xl bg-black/30 text-2xl ${state === 'lock' ? 'opacity-40 grayscale' : ''}`}>{state === 'lock' ? '🔒' : a.icon}</span>
-        <div className="min-w-0 flex-1">
-          <p className={`truncate text-sm font-extrabold ${state === 'lock' ? 'text-sub' : ''}`}>{a.name}</p>
-          <p className="text-[11px] text-sub">{a.description}</p>
-          <p className="mt-1 text-[11px] font-bold">
-            <span className={state === 'done' ? 'text-gold' : state === 'prog' ? 'text-pu-light' : 'text-sub'}>{a.unlocked ? '✓ ' : ''}{a.unlocked ? a.target : a.progress}/{a.target} · {pct}% · +{a.reward_coins} monedas</span>
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 function Section({ title, count, items }) {
   if (!items.length) return null

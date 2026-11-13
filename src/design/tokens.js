@@ -29,7 +29,7 @@ export const tokens = {
     swatch: '0 0 0 3px rgba(168,85,247,.85)',
   },
   radii: { card: '24px', hero: '28px', button: '16px', small: '12px' },
-  spacing: { header: '84px' },
+  spacing: { header: '84px', 'achievement-bar': '7px' },
   dropShadows: { fire: '0 0 4px rgba(255,151,92,.25)' },
   motion: { duration: '180ms', enter: '220ms', press: '.98' },
   blur: { glass: '6px' },

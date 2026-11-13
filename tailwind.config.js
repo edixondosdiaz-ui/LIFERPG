@@ -22,10 +22,11 @@ export default {
       scale: { press: tokens.motion.press },
       backdropBlur: tokens.blur,
       keyframes: {
+        'achievement-fill': { from: { transform: 'scaleX(0)' }, to: { transform: 'scaleX(1)' } },
         'fade-up': { from: { opacity: 0, transform: 'translateY(6px)' }, to: { opacity: 1, transform: 'none' } },
         pop: { '0%': { opacity: 0, transform: 'scale(.92)' }, '100%': { opacity: 1, transform: 'scale(1)' } },
       },
-      animation: { 'fade-up': `fade-up ${tokens.motion.enter} ease-out both`, pop: `pop ${tokens.motion.enter} ease-out both` },
+      animation: { 'achievement-fill': `achievement-fill ${tokens.motion.enter} ease-out both`, 'fade-up': `fade-up ${tokens.motion.enter} ease-out both`, pop: `pop ${tokens.motion.enter} ease-out both` },
     },
   },
   plugins: [],
