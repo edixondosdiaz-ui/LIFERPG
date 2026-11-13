@@ -3,3 +3,9 @@ dist
 .env
 .env.local
 .env*.local
+AGENTS.md
+especificacion.md
+contexto.md
+src.zip
+supabase.sip
+supabase
