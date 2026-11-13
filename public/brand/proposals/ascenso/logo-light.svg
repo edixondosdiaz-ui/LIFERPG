@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 160" role="img" aria-labelledby="title desc"><title id="title">LifeRPG · Ascenso</title><desc id="desc">Un emblema de progreso con escalones y un destello: hábitos que se convierten en niveles.</desc><defs><linearGradient id="brand" x1="55" y1="48" x2="200" y2="214" gradientUnits="userSpaceOnUse"><stop stop-color="#dab8ff"/><stop offset=".45" stop-color="#a855f7"/><stop offset="1" stop-color="#7431b6"/></linearGradient></defs><g transform="translate(8 16) scale(.5)"><path d="M128 48 196 78v58c0 38-29 62-68 78-39-16-68-40-68-78V78Z" fill="url(#brand)"/>
+      <path d="M88 161v-25h26v-27h27V83" fill="none" stroke="#f8f7ff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="m153 146 7 15 16 7-16 7-7 15-7-15-15-7 15-7Z" fill="#f8f7ff"/></g><g transform="translate(184 45) scale(1.25)" fill="none" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+  <g stroke="#100c22"><path d="M0 0v56h30M46 0v56M66 56V0h32M66 25h25M116 0v56h32M116 0h32M116 26h25"/></g>
+  <g stroke="#7431b6"><path d="M174 56V0h21q18 0 18 16t-18 16h-21m20 0 24 24M237 56V0h21q18 0 18 16t-18 16h-21M324 5q-8-6-19-5-23 1-23 28t23 28h20V31h-18"/></g>
+</g></svg>

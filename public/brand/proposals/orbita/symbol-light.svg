@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc"><title id="title">LifeRPG · Órbita</title><desc id="desc">Un ciclo abierto de experiencia y una estrella de objetivo. Constancia que sigue creciendo.</desc><defs><linearGradient id="brand" x1="55" y1="48" x2="200" y2="214" gradientUnits="userSpaceOnUse"><stop stop-color="#dab8ff"/><stop offset=".45" stop-color="#a855f7"/><stop offset="1" stop-color="#7431b6"/></linearGradient></defs><path d="M189 113a65 65 0 1 1-55-49" fill="none" stroke="url(#brand)" stroke-width="23" stroke-linecap="round"/>
+      <path d="m93 127 25 25 30-38" fill="none" stroke="#7431b6" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="m180 45 10 23 24 10-24 10-10 24-10-24-24-10 24-10Z" fill="#a855f7"/>
+      <path d="m180 62 5 11 12 5-12 5-5 12-5-12-11-5 11-5Z" fill="#f8f7ff"/></svg>

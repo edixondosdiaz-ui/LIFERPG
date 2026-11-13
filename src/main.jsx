@@ -10,7 +10,9 @@ import { palette } from './design/tokens'
 document.querySelector('meta[name="theme-color"]')?.setAttribute('content', palette.background.violet)
 
 const root = ReactDOM.createRoot(document.getElementById('root'))
-if (import.meta.env.DEV && window.location.pathname === '/__visual') {
+if (import.meta.env.DEV && window.location.pathname === '/__brand') {
+  import('./design/BrandPreview.jsx').then(({ default: BrandPreview }) => root.render(<BrandPreview />))
+} else if (import.meta.env.DEV && window.location.pathname === '/__visual') {
   import('./design/Preview.jsx').then(({ default: Preview }) => root.render(<Preview />))
 } else root.render(
   <React.StrictMode>
