@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { notifyHabitChanges } from '../lib/habitEvents'
 
 const TZ = 'America/Bogota'
 // Fecha de hoy en Colombia, formato AAAA-MM-DD
@@ -55,7 +56,9 @@ export async function listHabitsToday() {
 }
 
 export async function logHabit({ pillar, habit }) {
-  return unwrap(await supabase.rpc('log_habit', { p_pillar: pillar, p_habit: habit }))
+  const result = unwrap(await supabase.rpc('log_habit', { p_pillar: pillar, p_habit: habit }))
+  notifyHabitChanges()
+  return result
 }
 
 /* ---------- Fuerza ---------- */

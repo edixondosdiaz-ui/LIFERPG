@@ -2,7 +2,7 @@
 // La aritmética se hace a mediodía UTC para evitar saltos por zona horaria.
 const TZ = 'America/Bogota'
 
-export const today = () => new Date().toLocaleDateString('en-CA', { timeZone: TZ })
+export const today = (date = new Date()) => date.toLocaleDateString('en-CA', { timeZone: TZ })
 
 const at = (s) => new Date(`${s}T12:00:00Z`)
 

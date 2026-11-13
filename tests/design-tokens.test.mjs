@@ -27,3 +27,7 @@ test('los bordes funcionales se distinguen de la superficie',()=>{
   assert.ok(contrast(palette.border.DEFAULT,palette.surface.inset)>=3)
   assert.ok(contrast(palette.border.DEFAULT,palette.surface.DEFAULT)>=3)
 })
+test('las fechas de la racha mantienen contraste AA',()=>{
+  for(const bg of [palette.fire.light,palette.fire.warm])assert.ok(contrast(palette.fire.ink,bg)>=4.5)
+  assert.ok(contrast(palette.text.secondary,palette.surface.raised)>=4.5)
+})

@@ -3,15 +3,6 @@ import { pillarThemes } from '../design/tokens'
 import { Ring } from './charts'
 import { palette } from '../design/tokens'
 
-export function TodayHero({ progress, username, streak }) {
-  return <section className="pilot-hero space-y-5">
-    <div className="flex items-center justify-between gap-2"><p className="pilot-eyebrow">Tu día, tu progreso</p><span className="rounded-full border border-pu/30 bg-pu/10 px-3 py-1 text-xs font-semibold text-pu-light">Nivel {progress?.level ?? '—'}</span></div>
-    <div><h1 className="text-[28px] font-extrabold leading-tight tracking-tight">Cada día cuenta.</h1><p className="mt-2 text-sm text-sub">{username ? `@${username}, sigue construyendo tu mejor versión.` : 'Tu progreso empieza con una pequeña acción.'}</p></div>
-    <div><div className="mb-2 flex justify-between text-xs"><span className="text-sub">Experiencia</span><b className="tabular-nums text-pu-light">{progress ? `${progress.current} / ${progress.needed} XP` : '— XP'}</b></div><div className="pilot-bar"><div className="h-full rounded-full bg-pu-light transition-all duration-ui" style={{width:`${progress?.pct ?? 0}%`}}/></div></div>
-    <p className="flex items-center gap-2 text-xs text-sub"><span className="h-1.5 w-1.5 rounded-full bg-warning"/><b className="tabular-nums text-ink">{streak ?? '—'}</b> días de constancia</p>
-  </section>
-}
-
 export function PillarTile({ pillar, title, path, level, days, action, busy, onQuick, preview=false, children }) {
   const content=<><div className="flex items-center justify-between gap-2"><h2 className="text-lg font-extrabold">{title}</h2><span className="pillar-ink text-xs font-bold">Nivel {level ?? '—'}</span></div><p className="mb-3 mt-2 text-xs text-sub">{days===null ? 'Tu actividad semanal aparecerá aquí' : `${days} de 7 días activos esta semana`}</p><div className="pilot-bar"><div className="pillar-fill h-full rounded-full transition-all duration-ui" style={{width:`${(days ?? 0)/7*100}%`}}/></div></>
   return <section className={`pilot-pillar ${pillarThemes[pillar].classes}`}>

@@ -9,3 +9,6 @@ contexto.md
 src.zip
 supabase.sip
 supabase
+!supabase/
+supabase/*
+!supabase/09_hoy_racha_habitos.sql

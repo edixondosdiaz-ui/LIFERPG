@@ -37,7 +37,6 @@
   .visual-pilot button:not(:disabled):active { @apply scale-press; }
   .visual-pilot button:disabled { opacity: 1; cursor: not-allowed; }
   .visual-pilot :is(button,a):focus-visible { @apply outline-none ring-2 ring-pu-light ring-offset-2 ring-offset-app; }
-  .pilot-hero { @apply relative overflow-hidden rounded-hero border border-stroke-glass bg-panel bg-hero p-5 shadow-hero; }
   .pilot-eyebrow { @apply text-[11px] font-semibold uppercase tracking-widest text-sub; }
   .pilot-pillar { @apply relative overflow-hidden rounded-card border border-stroke-glass bg-panel bg-surface p-5 shadow-card; border-left: 3px solid var(--pillar); }
   .pilot-pillar .pillar-ink { color: var(--pillar); }

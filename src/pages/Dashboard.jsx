@@ -1,11 +1,13 @@
-import { TodayHero, PillarTile } from '../components/PilotCards'
+import { PillarTile } from '../components/PilotCards'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import * as ex from '../services/experience'
 import * as px from '../services/pillars'
 import { PILLARS, levelProgress } from '../lib/xp'
-import { today, weekStart } from '../lib/dates'
+import { weekStart } from '../lib/dates'
+import WeeklyHabitStreak from '../components/WeeklyHabitStreak'
+import useHabitWeek from '../hooks/useHabitWeek'
 import { PRODUCT } from '../lib/product'
 
 const CARDS = {
@@ -15,7 +17,8 @@ const CARDS = {
   finanzas: { path: 'finanzas', action: 'Registrar movimiento' },
 }
 export default function Dashboard() {
-  const { profile, streak, refreshProfile } = useAuth()
+  const { profile, user, refreshProfile } = useAuth()
+  const habits=useHabitWeek(user?.id)
   const navigate = useNavigate()
   const [rows, setRows] = useState(null)
   const [msg, setMsg] = useState('')
@@ -41,8 +44,7 @@ export default function Dashboard() {
     } catch (e) { setMsg(e.message) } finally { setBusy(false) }
   }
   return <div className="space-y-5">
-    <TodayHero progress={lp} username={profile?.username} streak={streak}/>
-    <section className="surface p-4"><h2 className="font-bold">Objetivo del día</h2><p className="mt-1 text-sm text-sub">{!rows ? 'Consultando actividad…' : completed ? 'Objetivo cumplido. Ya registraste actividad hoy.' : 'Registra una actividad en cualquiera de tus pilares.'}</p><Link to="/pilares/habitos" className="mt-3 inline-block text-xs font-bold text-pu-light">Tus hábitos rápidos →</Link></section>
+    <WeeklyHabitStreak data={habits.data} error={habits.error} reload={habits.reload}/>
     {msg && <p role="status" className="text-sm text-pu-light">{msg}</p>}
     <div className="grid grid-cols-1 gap-3">
       {Object.entries(PILLARS).map(([key,p]) => {
