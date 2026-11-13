@@ -19,7 +19,7 @@ function Swatches({ colors, value, onPick }) {
     <div className="flex flex-wrap gap-2.5">
       {colors.map((c) => (
         <button key={c} type="button" aria-label={`Color ${c}`} onClick={() => onPick(c)}
-          className={`h-10 w-10 rounded-full border-2 transition active:scale-90 ${value === c ? 'border-white shadow-[0_0_0_3px_#a855f7]' : 'border-white/15'}`}
+          className={`h-10 w-10 rounded-full border-2 transition active:scale-press ${value === c ? 'border-white shadow-swatch' : 'border-white/15'}`}
           style={{ background: c }} />
       ))}
     </div>
@@ -31,7 +31,7 @@ function Chips({ options, value, onPick }) {
     <div className="flex flex-wrap gap-2">
       {options.map((o) => (
         <button key={o.id} type="button" onClick={() => onPick(o.id)}
-          className={`rounded-2xl border px-3.5 py-2.5 text-[13px] font-bold transition active:scale-95 ${value === o.id ? 'border-pu bg-pu/20 text-pu-light' : 'border-white/[.08] bg-white/[.04] text-sub hover:text-ink'}`}>
+          className={`rounded-2xl border px-3.5 py-2.5 text-[13px] font-bold transition active:scale-press ${value === o.id ? 'border-pu bg-pu/20 text-pu-light' : 'border-white/[.08] bg-white/[.04] text-sub hover:text-ink'}`}>
           {o.label}
         </button>
       ))}
@@ -51,7 +51,7 @@ export default function AvatarEditor({ value, onChange, equipped = [], canShop =
 
   return (
     <div className="space-y-4">
-      <div className="relative mx-auto grid place-items-center overflow-hidden rounded-[28px] border border-white/[.08] bg-card py-4">
+      <div className="relative mx-auto grid place-items-center overflow-hidden rounded-hero border border-white/[.08] bg-card py-4">
         <Avatar avatar={a} equipped={equipped} view="full" size={250} rounded />
       </div>
       <button type="button" className="w-full rounded-2xl border border-pu/30 py-3 text-sm font-bold text-pu-light" onClick={() => onChange(randomAvatar())}>Aleatorio</button>
@@ -60,7 +60,7 @@ export default function AvatarEditor({ value, onChange, equipped = [], canShop =
       <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
         {TABS.map((t) => (
           <button key={t.id} type="button" onClick={() => { haptic(4); setTab(t.id) }}
-            className={`flex-none rounded-full px-4 py-2 text-[13px] font-bold transition active:scale-95 ${tab === t.id ? 'bg-gradient-to-b from-pu-light to-pu-dark text-white' : 'bg-white/[.05] text-sub'}`}>
+            className={`flex-none rounded-full px-4 py-2 text-[13px] font-bold transition active:scale-press ${tab === t.id ? 'bg-gradient-to-b from-pu-dark to-pu-pressed text-white' : 'bg-white/[.05] text-sub'}`}>
             {t.label}
           </button>
         ))}
@@ -81,7 +81,7 @@ export default function AvatarEditor({ value, onChange, equipped = [], canShop =
           <div className="grid grid-cols-2 gap-2.5">
             {Object.entries(AESTHETICS).map(([id, e]) => (
               <button key={id} type="button" onClick={() => set('aesthetic')(id)}
-                className={`flex items-center gap-3 rounded-2xl border p-3 text-left text-sm font-bold transition active:scale-95 ${a.aesthetic === id ? 'border-pu bg-pu/15' : 'border-white/[.08] bg-white/[.03]'}`}>
+                className={`flex items-center gap-3 rounded-2xl border p-3 text-left text-sm font-bold transition active:scale-press ${a.aesthetic === id ? 'border-pu bg-pu/15' : 'border-white/[.08] bg-white/[.03]'}`}>
                 <span className="h-9 w-9 flex-none rounded-xl" style={{ background: `linear-gradient(135deg, ${e.bg[0]}, ${e.accent})` }} />
                 {e.label}
               </button>

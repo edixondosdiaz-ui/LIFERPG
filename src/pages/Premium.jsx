@@ -50,7 +50,7 @@ export default function Premium() {
       </>}
     </section>
     {confirming && !status?.active && <section role="alertdialog" aria-label="Confirmar prueba gratuita" className="surface space-y-4 border-pu/40 p-5"><h2 className="font-extrabold">Confirma tu prueba</h2><p className="text-sm text-sub">Activarás Premium durante {status?.duration_days} días desde ahora. No se te cobrará nada ni tendrás que cancelar una suscripción.</p><div className="grid grid-cols-2 gap-2"><button disabled={busy} className="rounded-2xl bg-white/10 py-3 text-sm font-bold" onClick={()=>setConfirming(false)}>Cancelar</button><button disabled={busy} className="btn" onClick={activate}>{busy?'Activando…':'Confirmar prueba gratuita'}</button></div></section>}
-    {error && <div role="alert" className="space-y-2 rounded-2xl border border-red-400/30 p-4 text-sm text-red-300"><p>{error}</p><button disabled={busy} className="text-xs underline" onClick={()=>{setError('');load().catch(e=>setError(e.message))}}>Volver a consultar estado</button></div>}
+    {error && <div role="alert" className="space-y-2 rounded-2xl border border-error/30 p-4 text-sm text-error"><p>{error}</p><button disabled={busy} className="text-xs underline" onClick={()=>{setError('');load().catch(e=>setError(e.message))}}>Volver a consultar estado</button></div>}
     {status?.active && <AdvancedTrends />}
   </div>
 }

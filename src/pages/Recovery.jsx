@@ -66,7 +66,7 @@ export default function Recovery({ reset = false }) {
     <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m12 5-7 7 7 7M5 12h14" /></svg>
     <span className="min-w-0">Volver al inicio de sesión</span>
   </Link>
-  const feedback = message && <p role={messageType === 'error' ? 'alert' : 'status'} className={`rounded-2xl border p-3 text-sm leading-relaxed ${messageType === 'error' ? 'border-red-400/25 bg-red-400/5 text-red-200' : 'border-pu/25 bg-pu/5 text-pu-light'}`}>{message}</p>
+  const feedback = message && <p role={messageType === 'error' ? 'alert' : 'status'} className={`rounded-2xl border p-3 text-sm leading-relaxed ${messageType === 'error' ? 'border-error/25 bg-error/5 text-error' : 'border-pu/25 bg-pu/5 text-pu-light'}`}>{message}</p>
   const showForm = !checking && !(reset && !valid && !done) && !done
   return <main className="mx-auto flex min-h-screen w-full min-w-0 max-w-md flex-col justify-center space-y-5 px-5 py-8 text-ink">
     <h1 className="text-2xl font-extrabold">{reset ? 'Restablecer contraseña' : 'Recuperar contraseña'}</h1>

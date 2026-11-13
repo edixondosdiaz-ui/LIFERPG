@@ -1,3 +1,4 @@
+import { palette } from '../design/tokens'
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -6,10 +7,10 @@ import Avatar from '../components/Avatar'
 import BackButton from '../components/BackButton'
 import { PILLARS, levelFromXp, levelProgress } from '../lib/xp'
 
-const COLORS = { fuerza: '#ff4d4f', vitalidad: '#2fbf4a', intelecto: '#38bdf8', finanzas: '#e6b43c' }
+const COLORS = { fuerza: palette.strength, vitalidad: palette.health, intelecto: palette.education, finanzas: palette.finance }
 
 // Barra enfrentada: quien tiene más, resalta
-function Versus({ label, a, b, color = '#a855f7', fmt = (n) => n.toLocaleString('es-CO') }) {
+function Versus({ label, a, b, color = palette.brand.DEFAULT, fmt = (n) => n.toLocaleString('es-CO') }) {
   const max = Math.max(a, b, 1)
   const win = a === b ? 0 : a > b ? 1 : 2
   return (
@@ -20,8 +21,8 @@ function Versus({ label, a, b, color = '#a855f7', fmt = (n) => n.toLocaleString(
         <b className={win === 2 ? 'text-ink' : 'text-sub'}>{fmt(b)}</b>
       </div>
       <div className="flex gap-1">
-        <div className="flex h-2 flex-1 justify-end overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full transition-all duration-700" style={{ width: `${(a / max) * 100}%`, background: color, opacity: win === 2 ? 0.45 : 1 }} /></div>
-        <div className="flex h-2 flex-1 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full transition-all duration-700" style={{ width: `${(b / max) * 100}%`, background: color, opacity: win === 1 ? 0.45 : 1 }} /></div>
+        <div className="flex h-2 flex-1 justify-end overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full transition-all duration-ui" style={{ width: `${(a / max) * 100}%`, background: color, opacity: win === 2 ? 0.45 : 1 }} /></div>
+        <div className="flex h-2 flex-1 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full transition-all duration-ui" style={{ width: `${(b / max) * 100}%`, background: color, opacity: win === 1 ? 0.45 : 1 }} /></div>
       </div>
     </div>
   )
@@ -44,13 +45,12 @@ export default function FriendProfile() {
   return (
     <div className="space-y-5">
       <BackButton to="/amigos" label="Amigos" />
-      {err && <p className="rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-300">{err}</p>}
+      {err && <p className="rounded-2xl border border-error/30 bg-error/10 p-4 text-sm text-error">{err}</p>}
       {!them && !err && <p className="text-center text-sm text-sub">Cargando…</p>}
 
       {them && me && (
         <>
-          <section className="relative overflow-hidden rounded-[28px] border border-white/[.08] bg-gradient-to-br from-pu-dark/45 via-card to-card p-6 text-center shadow-[0_24px_60px_-24px_rgba(168,85,247,.65)]">
-            <div className="pointer-events-none absolute -top-20 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-pu/30 blur-3xl" />
+          <section className="relative overflow-hidden rounded-hero border border-white/[.08] bg-gradient-to-br from-pu-dark/45 via-card to-card p-6 text-center shadow-card">
             <div className="relative mx-auto w-fit"><Avatar avatar={them.avatar} equipped={them.equipped} view="bust" size={140} /></div>
             <p className="relative mt-4 truncate text-2xl font-extrabold tracking-tight">@{them.username} {them.equipped.find((e) => e.slot === 'badge')?.icon}</p>
             {them.equipped.find(e=>e.slot==='title') && <p className="relative text-sm font-bold text-pu-light">{them.equipped.find(e=>e.slot==='title').text}</p>}
@@ -65,10 +65,10 @@ export default function FriendProfile() {
             <div className="flex items-center justify-between text-sm font-extrabold"><span>Tú</span><span className="text-xs font-semibold text-sub">Comparación</span><span>@{them.username}</span></div>
             <Versus label="XP total" a={me.xp} b={them.xp} />
             <Versus label="Nivel" a={levelFromXp(me.xp)} b={levelFromXp(them.xp)} />
-            <Versus label="Racha" a={me.streak} b={them.streak} color="#fb923c" />
+            <Versus label="Racha" a={me.streak} b={them.streak} color={palette.nutrition} />
             <Versus label="Hábitos" a={me.habits} b={them.habits} />
             <Versus label="Series de fuerza" a={me.sets} b={them.sets} />
-            <Versus label="Logros" a={me.achievements} b={them.achievements} color="#e6b43c" />
+            <Versus label="Logros" a={me.achievements} b={them.achievements} color={palette.finance} />
           </section>
 
           <section className="surface space-y-4 p-4">

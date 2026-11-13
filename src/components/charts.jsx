@@ -1,9 +1,10 @@
+import { palette, tokens } from '../design/tokens'
 import { useId } from 'react'
 
-const GRID = 'rgba(255,255,255,.07)'
+const GRID = palette.grid
 
 // Barras (una o varias series). data: [{ label, value } | { label, values: [a, b] }]
-export function BarChart({ data, colors = ['#a855f7'], height = 112, goal, format = (v) => v, labelEvery = 1, empty = 'Aún no hay datos.' }) {
+export function BarChart({ data, colors = [palette.brand.DEFAULT], height = 112, goal, format = (v) => v, labelEvery = 1, empty = 'Aún no hay datos.' }) {
   const rows = data.map((d) => ({ ...d, values: d.values ?? [d.value ?? 0] }))
   const max = Math.max(goal ?? 0, ...rows.flatMap((r) => r.values), 1)
   if (!rows.some((r) => r.values.some((v) => v > 0))) {
@@ -17,7 +18,7 @@ export function BarChart({ data, colors = ['#a855f7'], height = 112, goal, forma
           <div key={i} className="flex h-full min-w-0 flex-1 items-end justify-center gap-[2px]"
             title={`${r.label}: ${r.values.map((v) => format(v)).join(' · ')}`}>
             {r.values.map((v, k) => (
-              <div key={k} className="w-full max-w-[22px] rounded-t-md transition-all duration-500"
+              <div key={k} className="w-full max-w-[22px] rounded-t-md transition-all duration-ui"
                 style={{ height: `${v > 0 ? Math.max(4, (v / max) * 100) : 0}%`, background: r.active && k === 0 ? colors[k] : colors[k] + (r.active ? '' : '99') }} />
             ))}
           </div>
@@ -35,7 +36,7 @@ export function BarChart({ data, colors = ['#a855f7'], height = 112, goal, forma
 }
 
 // Línea con área. points: [{ label, value }]
-export function LineChart({ points, color = '#a855f7', height = 120, format = (v) => v, empty = 'Necesitas al menos 2 registros.' }) {
+export function LineChart({ points, color = palette.brand.light, height = 120, format = (v) => v, empty = 'Necesitas al menos 2 registros.' }) {
   const id = useId().replace(/:/g, '')
   if (points.length < 2) {
     return <p className="rounded-2xl border border-dashed border-line px-3 py-4 text-center text-xs text-sub">{empty}</p>
@@ -71,15 +72,15 @@ export function LineChart({ points, color = '#a855f7', height = 120, format = (v
 }
 
 // Anillo de progreso con contenido al centro
-export function Ring({ pct, color = '#a855f7', size = 132, stroke = 11, children }) {
+export function Ring({ pct, color = palette.brand.DEFAULT, size = 132, stroke = 11, children }) {
   const r = (size - stroke) / 2, c = 2 * Math.PI * r
   const p = Math.max(0, Math.min(100, pct))
   return (
     <div className="relative grid flex-none place-items-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,.08)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={palette.track} strokeWidth={stroke} />
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
-          strokeDasharray={c} strokeDashoffset={c * (1 - p / 100)} style={{ transition: 'stroke-dashoffset .7s ease', filter: `drop-shadow(0 0 8px ${color}88)` }} />
+          strokeDasharray={c} strokeDashoffset={c * (1 - p / 100)} style={{ transition: `stroke-dashoffset ${tokens.motion.duration} ease` }} />
       </svg>
       <div className="absolute inset-0 grid place-items-center text-center">{children}</div>
     </div>
@@ -87,7 +88,7 @@ export function Ring({ pct, color = '#a855f7', size = 132, stroke = 11, children
 }
 
 // Barra de progreso fina con etiqueta
-export function Meter({ label, value, goal, unit = '', color = '#a855f7', format = (v) => Math.round(v) }) {
+export function Meter({ label, value, goal, unit = '', color = palette.brand.DEFAULT, format = (v) => Math.round(v) }) {
   const pct = goal ? Math.min(100, (value / goal) * 100) : 0
   return (
     <div>
@@ -96,14 +97,14 @@ export function Meter({ label, value, goal, unit = '', color = '#a855f7', format
         <span className="text-sub"><b className="text-ink">{format(value)}</b> / {format(goal)} {unit}</span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-white/10">
-        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color }} />
+        <div className="h-full rounded-full transition-all duration-ui" style={{ width: `${pct}%`, background: color }} />
       </div>
     </div>
   )
 }
 
 // Barras horizontales: [{ label, value, color? }]
-export function HBars({ items, color = '#a855f7', format = (v) => v, empty = 'Sin datos todavía.' }) {
+export function HBars({ items, color = palette.brand.DEFAULT, format = (v) => v, empty = 'Sin datos todavía.' }) {
   const max = Math.max(...items.map((i) => i.value), 1)
   if (!items.length) return <p className="rounded-2xl border border-dashed border-line px-3 py-4 text-center text-xs text-sub">{empty}</p>
   return (
@@ -112,7 +113,7 @@ export function HBars({ items, color = '#a855f7', format = (v) => v, empty = 'Si
         <div key={it.label}>
           <div className="mb-1 flex justify-between text-xs"><span className="font-semibold">{it.label}</span><span className="text-sub">{format(it.value)}</span></div>
           <div className="h-2 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${(it.value / max) * 100}%`, background: it.color || color }} />
+            <div className="h-full rounded-full transition-all duration-ui" style={{ width: `${(it.value / max) * 100}%`, background: it.color || color }} />
           </div>
         </div>
       ))}
@@ -121,7 +122,7 @@ export function HBars({ items, color = '#a855f7', format = (v) => v, empty = 'Si
 }
 
 // Calendario de actividad (cuadrícula tipo contribuciones). days: [{ date, level 0-4 }]
-export function Heatmap({ days, color = '#38bdf8', weeks = 10 }) {
+export function Heatmap({ days, color = palette.education, weeks = 10 }) {
   const cols = []
   for (let i = 0; i < days.length; i += 7) cols.push(days.slice(i, i + 7))
   return (
@@ -130,7 +131,7 @@ export function Heatmap({ days, color = '#38bdf8', weeks = 10 }) {
         <div key={i} className="flex flex-1 flex-col gap-1">
           {col.map((d) => (
             <i key={d.date} hidden={d.hidden} title={`${d.date}: ${d.label ?? ''}`} className="block aspect-square w-full rounded-[4px]"
-              style={{ background: d.level ? color : 'rgba(255,255,255,.06)', opacity: d.level ? 0.25 + d.level * 0.19 : 1,
+              style={{ background: d.level ? color : palette.track, opacity: d.level ? 0.25 + d.level * 0.19 : 1,
                        outline: d.today ? `1.5px solid ${color}` : 'none' }} />
           ))}
         </div>

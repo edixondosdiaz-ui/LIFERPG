@@ -1,19 +1,28 @@
-// Misma paleta de siempre (app, card, pu…), afinada, más tokens de animación y fuente
+import { tokens } from './src/design/tokens.js'
+const c = tokens.colors
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
       colors: {
-        app: '#0d0d0f', card: '#15161c', card2: '#0f1015', line: '#25262f',
-        ink: '#f3f4f8', sub: '#8b91a5', gold: '#e6b43c',
-        pu: { DEFAULT: '#a855f7', dark: '#7c3aed', light: '#c084fc' },
+        app: c.background.violet, card: c.surface.DEFAULT, card2: c.surface.inset, line: c.border.DEFAULT,
+        ink: c.text.primary, sub: c.text.secondary, gold: c.finance,
+        pu: c.brand, panel: c.surface, stroke: c.border, success: c.success, warning: c.warning, error: c.error, 'error-strong':c.errorStrong,
+        strength: c.strength, health: c.health, education: c.education, finance: c.finance,
+        hydration: c.hydration, sleep: c.sleep, nutrition: c.nutrition,
       },
-      fontFamily: { sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'] },
+      fontFamily: { sans: tokens.fonts.body, display: tokens.fonts.display },
+      backgroundImage: tokens.backgrounds,
+      boxShadow: tokens.shadows,
+      borderRadius: tokens.radii,
+      transitionDuration: { ui: tokens.motion.duration },
+      scale: { press: tokens.motion.press },
+      backdropBlur: tokens.blur,
       keyframes: {
-        'fade-up': { from: { opacity: 0, transform: 'translateY(10px)' }, to: { opacity: 1, transform: 'none' } },
+        'fade-up': { from: { opacity: 0, transform: 'translateY(6px)' }, to: { opacity: 1, transform: 'none' } },
         pop: { '0%': { opacity: 0, transform: 'scale(.92)' }, '100%': { opacity: 1, transform: 'scale(1)' } },
       },
-      animation: { 'fade-up': 'fade-up .4s ease-out both', pop: 'pop .25s ease-out both' },
+      animation: { 'fade-up': `fade-up ${tokens.motion.enter} ease-out both`, pop: `pop ${tokens.motion.enter} ease-out both` },
     },
   },
   plugins: [],

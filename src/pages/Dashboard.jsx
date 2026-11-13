@@ -1,3 +1,4 @@
+import { TodayHero, PillarTile } from '../components/PilotCards'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -8,10 +9,10 @@ import { today, weekStart } from '../lib/dates'
 import { PRODUCT } from '../lib/product'
 
 const CARDS = {
-  fuerza: { color: '#ff4d4f', path: 'fuerza', action: 'Empezar la rutina de hoy' },
-  vitalidad: { color: '#2fbf4a', path: 'salud', action: '+250 ml de agua' },
-  intelecto: { color: '#38bdf8', path: 'educacion', action: 'Iniciar Pomodoro' },
-  finanzas: { color: '#e6b43c', path: 'finanzas', action: 'Registrar movimiento' },
+  fuerza: { path: 'fuerza', action: 'Empezar la rutina de hoy' },
+  vitalidad: { path: 'salud', action: '+250 ml de agua' },
+  intelecto: { path: 'educacion', action: 'Iniciar Pomodoro' },
+  finanzas: { path: 'finanzas', action: 'Registrar movimiento' },
 }
 export default function Dashboard() {
   const { profile, streak, refreshProfile } = useAuth()
@@ -40,22 +41,16 @@ export default function Dashboard() {
     } catch (e) { setMsg(e.message) } finally { setBusy(false) }
   }
   return <div className="space-y-5">
-    <section className="surface space-y-3 bg-gradient-to-br from-pu-dark/30 to-card p-4">
-      <div className="flex items-center justify-between"><h1 className="text-xl font-extrabold">Hoy · Nivel {lp.level}</h1><span className="text-xs text-orange-300">Racha {streak} días</span></div>
-      <div className="flex justify-between text-xs text-sub"><span>@{profile?.username}</span><b>{lp.current} / {lp.needed} XP</b></div>
-      <div className="h-2 rounded-full bg-white/10"><div className="h-full rounded-full bg-pu" style={{width:`${lp.pct}%`}} /></div>
-    </section>
+    <TodayHero progress={lp} username={profile?.username} streak={streak}/>
     <section className="surface p-4"><h2 className="font-bold">Objetivo del día</h2><p className="mt-1 text-sm text-sub">{!rows ? 'Consultando actividad…' : completed ? 'Objetivo cumplido. Ya registraste actividad hoy.' : 'Registra una actividad en cualquiera de tus pilares.'}</p><Link to="/pilares/habitos" className="mt-3 inline-block text-xs font-bold text-pu-light">Tus hábitos rápidos →</Link></section>
     {msg && <p role="status" className="text-sm text-pu-light">{msg}</p>}
     <div className="grid grid-cols-1 gap-3">
       {Object.entries(PILLARS).map(([key,p]) => {
         const c=CARDS[key], lp=levelProgress(profile?.pillar_xp?.[key] ?? 0)
         const days=rows ? new Set(rows.filter(r => r.pillar===key && r.day>=weekStart()).map(r=>r.day)).size : null
-        return <section key={key} className="overflow-hidden rounded-3xl border p-4" style={{borderColor:c.color+'44', background:`linear-gradient(135deg,${c.color}20,#15161c)`}}>
-          <Link to={`/pilares/${c.path}`} className="block" aria-label={`Abrir ${p.label}`}><div className="flex justify-between"><h2 className="font-extrabold">{p.label.replace('Control financiero','Finanzas')}</h2><span className="text-xs font-bold" style={{color:c.color}}>Nivel {lp.level}</span></div><p className="mt-3 text-xs text-sub">{days === null ? 'Cargando semana…' : `${days} de 7 días activos esta semana`}</p><div className="mt-2 h-1.5 rounded-full bg-white/10"><div className="h-full rounded-full" style={{width:`${(days ?? 0)/7*100}%`,background:c.color}} /></div></Link>
-          <button disabled={busy} onClick={()=>quick(key)} className="mt-4 w-full rounded-2xl border py-3 text-sm font-bold disabled:opacity-50" style={{borderColor:c.color+'55',color:c.color}}>{c.action}</button>
-          {key==='vitalidad' && <Link to="/pilares/salud/correr" className="mt-2 block rounded-2xl bg-white/5 py-3 text-center text-sm font-bold text-emerald-300">Correr / Caminar</Link>}
-        </section>
+        return <PillarTile key={key} pillar={key} title={p.label} path={`/pilares/${c.path}`} level={lp.level} days={days} action={c.action} busy={busy} onQuick={()=>quick(key)}>
+          {key==='vitalidad' && <Link to="/pilares/salud/correr" className="mt-2 flex min-h-[44px] items-center justify-center text-xs font-semibold text-health">Correr / Caminar →</Link>}
+        </PillarTile>
       })}
     </div>
   </div>

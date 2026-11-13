@@ -1,3 +1,4 @@
+import { palette } from '../design/tokens'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import BackButton from './BackButton'
 import { useAuth } from '../context/AuthContext'
@@ -12,8 +13,7 @@ export function PillarHeader({ pillar, title, kicker, color, icon }) {
     <header className="space-y-4">
       <BackButton to="/" label="Hoy" />
       <div className="relative overflow-hidden rounded-3xl border p-4"
-        style={{ borderColor: color + '40', background: `linear-gradient(135deg, ${color}2e, #15161c 70%)` }}>
-        <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full blur-3xl" style={{ background: color + '40' }} />
+        style={{ borderColor: color + '40', background: `linear-gradient(135deg, ${color}2e, ${palette.surface.DEFAULT} 70%)` }}>
         <div className="relative flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="grid h-12 w-12 place-items-center rounded-2xl text-2xl" style={{ background: color + '2b' }}>{icon}</span>
@@ -31,7 +31,7 @@ export function PillarHeader({ pillar, title, kicker, color, icon }) {
           <span>{lp.current} / {lp.needed} XP al siguiente nivel</span><span>{xp.toLocaleString('es-CO')} XP</span>
         </div>
         <div className="relative mt-1 h-2 overflow-hidden rounded-full bg-white/10">
-          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${lp.pct}%`, background: `linear-gradient(90deg, ${color}99, ${color})` }} />
+          <div className="h-full rounded-full transition-all duration-ui" style={{ width: `${lp.pct}%`, background: `linear-gradient(90deg, ${color}99, ${color})` }} />
         </div>
       </div>
     </header>
@@ -39,7 +39,7 @@ export function PillarHeader({ pillar, title, kicker, color, icon }) {
 }
 
 // Pestañas tipo segmento
-export function Tabs({ items, value, onChange, color = '#a855f7' }) {
+export function Tabs({ items, value, onChange, color = palette.brand.DEFAULT }) {
   return <select aria-label="Periodo de la información" className="field !w-auto !text-xs" style={{borderColor:color+'55'}} value={value} onChange={e=>onChange(items.find(t=>String(t.id)===e.target.value).id)}>{items.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}</select>
 }
 
@@ -59,10 +59,10 @@ export function useToast() {
 export function Toast({ msg }) {
   if (!msg) return null
   const cls = msg.type === 'pr' ? 'border-pu/40 bg-gradient-to-r from-pu/25 to-pu-dark/10 text-pu-light'
-    : msg.type === 'err' ? 'border-red-400/30 bg-red-400/10 text-red-300' : 'border-pu/30 bg-pu/10 text-pu-light'
+    : msg.type === 'err' ? 'border-error/30 bg-error/10 text-error' : 'border-pu/30 bg-pu/10 text-pu-light'
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 mx-auto flex max-w-md justify-center px-4" role="status" aria-live="polite">
-      <p key={msg.n} className={`animate-pop rounded-2xl border px-4 py-2.5 text-center text-sm font-bold shadow-[0_12px_30px_-10px_rgba(0,0,0,.8)] backdrop-blur-md ${cls}`}>{msg.text}</p>
+      <p key={msg.n} className={`animate-pop rounded-2xl border px-4 py-2.5 text-center text-sm font-bold shadow-nav ${cls}`}>{msg.text}</p>
     </div>
   )
 }
@@ -102,10 +102,10 @@ export function Empty({ title, text }) {
   )
 }
 
-export function Chip({ active, color = '#a855f7', children, ...p }) {
+export function Chip({ active, color = palette.brand.DEFAULT, children, ...p }) {
   return (
     <button type="button" {...p}
-      className={`rounded-full border px-3 py-1.5 text-xs font-bold transition active:scale-95 ${active ? 'text-white' : 'border-white/10 bg-white/5 text-sub hover:text-ink'}`}
+      className={`rounded-full border px-3 py-1.5 text-xs font-bold transition active:scale-press ${active ? 'text-app' : 'border-white/10 bg-white/5 text-sub hover:text-ink'}`}
       style={active ? { background: color, borderColor: color } : undefined}>
       {children}
     </button>

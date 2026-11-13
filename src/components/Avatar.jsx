@@ -1,3 +1,4 @@
+import { palette, avatarTokens } from '../design/tokens'
 import { useId } from 'react'
 import { AESTHETICS, normalizeAvatar } from '../lib/avatar'
 
@@ -41,8 +42,8 @@ export default function Avatar({ avatar, equipped = [], size = 96, view = 'bust'
       style={{ borderRadius: rounded ? (view === 'head' ? '50%' : 28) : 0, display: 'block' }} role="img" aria-label="Avatar">
       <defs>
         <linearGradient id={`bg${uid}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={bg[0]} /><stop offset="1" stopColor={bg[1]} /></linearGradient>
-        <radialGradient id={`fx${uid}`}><stop offset="0" stopColor={fx?.color || '#a855f7'} stopOpacity=".55" /><stop offset="1" stopColor={fx?.color || '#a855f7'} stopOpacity="0" /></radialGradient>
-        <linearGradient id={`fr${uid}`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={frame?.color || '#fff'} /><stop offset="1" stopColor={frame?.color2 || frame?.color || '#fff'} /></linearGradient>
+        <radialGradient id={`fx${uid}`}><stop offset="0" stopColor={fx?.color || palette.brand.DEFAULT} stopOpacity=".55" /><stop offset="1" stopColor={fx?.color || palette.brand.DEFAULT} stopOpacity="0" /></radialGradient>
+        <linearGradient id={`fr${uid}`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={frame?.color || avatarTokens.ink.white} /><stop offset="1" stopColor={frame?.color2 || frame?.color || avatarTokens.ink.white} /></linearGradient>
         <clipPath id={`face${uid}`}><Face shape={a.face} /></clipPath>
         <clipPath id={`shirt${uid}`}><path d={full ? 'M62 166 C70 146 86 140 100 140 C114 140 130 146 138 166 L142 246 L58 246Z' : 'M34 200 C40 150 70 138 100 138 C130 138 160 150 166 200Z'} /></clipPath>
       </defs>
@@ -91,14 +92,14 @@ export default function Avatar({ avatar, equipped = [], size = 96, view = 'bust'
       {/* reloj */}
       {full && wrist && <g>
         <rect x="139" y="212" width="20" height="9" rx="4" fill={wrist.color} />
-        <rect x="143" y="210" width="12" height="13" rx="3" fill={wrist.style === 'pulse' ? '#0b1220' : '#1f2937'} stroke={wrist.color} strokeWidth="1.6" />
-        <circle cx="149" cy="216.5" r="1.8" fill={wrist.style === 'pulse' ? wrist.color : '#e5e7eb'} />
+        <rect x="143" y="210" width="12" height="13" rx="3" fill={wrist.style === 'pulse' ? avatarTokens.ink.watch : avatarTokens.ink.watchFace} stroke={wrist.color} strokeWidth="1.6" />
+        <circle cx="149" cy="216.5" r="1.8" fill={wrist.style === 'pulse' ? wrist.color : avatarTokens.ink.metal} />
       </g>}
 
       {/* orejas */}
       <ellipse cx={a.face === 'redondo' ? 62 : 65} cy="84" rx="5" ry="8" fill={a.skin} />
       <ellipse cx={a.face === 'redondo' ? 138 : 135} cy="84" rx="5" ry="8" fill={a.skin} />
-      {a.accessory === 'aro' && <circle cx={a.face === 'redondo' ? 61 : 64} cy="95" r="3" fill="none" stroke="#e6b43c" strokeWidth="1.6" />}
+      {a.accessory === 'aro' && <circle cx={a.face === 'redondo' ? 61 : 64} cy="95" r="3" fill="none" stroke={avatarTokens.ink.gold} strokeWidth="1.6" />}
 
       {/* rostro */}
       <Face shape={a.face} fill={a.skin} />
@@ -108,17 +109,17 @@ export default function Avatar({ avatar, equipped = [], size = 96, view = 'bust'
         {a.beard === 'corta' && <path d="M60 92 C66 100 76 100 84 100 C92 106 108 106 116 100 C124 100 134 100 140 92 L140 130 L60 130Z" fill={hair} opacity=".92" />}
         {a.beard === 'completa' && <path d="M58 82 C62 96 72 98 80 100 C90 94 110 94 120 100 C128 98 138 96 142 82 L146 136 L54 136Z" fill={hair} />}
       </g>
-      {expression?.style === 'smile' ? <path d="M88 103 Q100 119 112 103Z" fill="#fff" stroke={shade(a.skin,-55)} strokeWidth="1.5" /> : <>
+      {expression?.style === 'smile' ? <path d="M88 103 Q100 119 112 103Z" fill={avatarTokens.ink.white} stroke={shade(a.skin,-55)} strokeWidth="1.5" /> : <>
         {(a.beard === 'corta' || a.beard === 'completa') && <path d="M90 107 C96 110 104 110 110 107" stroke={shade(a.skin, -50)} strokeWidth="2" fill="none" strokeLinecap="round" />}
         {(a.beard === 'ninguna' || a.beard === 'sombra') && <path d="M91 106 C96 110 104 110 109 106" stroke={shade(a.skin, -55)} strokeWidth="2" fill="none" strokeLinecap="round" />}
       </>}
 
       {/* ojos y cejas */}
       <g>
-        <ellipse cx="86" cy="80" rx="5.6" ry="4" fill="#f8fafc" /><ellipse cx="114" cy="80" rx="5.6" ry="4" fill="#f8fafc" />
+        <ellipse cx="86" cy="80" rx="5.6" ry="4" fill={avatarTokens.ink.sclera} /><ellipse cx="114" cy="80" rx="5.6" ry="4" fill={avatarTokens.ink.sclera} />
         <circle cx="86" cy="80" r="2.9" fill={a.eyes} /><circle cx="114" cy="80" r="2.9" fill={a.eyes} />
-        <circle cx="86" cy="80" r="1.1" fill="#0b0b0f" /><circle cx="114" cy="80" r="1.1" fill="#0b0b0f" />
-        <path d="M78 71 C83 68 90 68 94 71 M106 71 C110 68 117 68 122 71" stroke={hair === '#cfcfd2' ? '#8b8b92' : hair} strokeWidth="2.6" strokeLinecap="round" fill="none" />
+        <circle cx="86" cy="80" r="1.1" fill={avatarTokens.ink.pupil} /><circle cx="114" cy="80" r="1.1" fill={avatarTokens.ink.pupil} />
+        <path d="M78 71 C83 68 90 68 94 71 M106 71 C110 68 117 68 122 71" stroke={hair === avatarTokens.hair[5] ? avatarTokens.ink.brow : hair} strokeWidth="2.6" strokeLinecap="round" fill="none" />
         <path d="M100 82 L98 94 C99 96 101 96 102 94" stroke={shade(a.skin, -32)} strokeWidth="1.6" fill="none" strokeLinecap="round" />
       </g>
 
@@ -138,7 +139,7 @@ export default function Avatar({ avatar, equipped = [], size = 96, view = 'bust'
 
       {/* accesorios base */}
       {a.accessory === 'cinta' && <path d={`M${a.face === 'cuadrado' ? 65 : 64} ${faceTop + 18} C80 ${faceTop + 8} 120 ${faceTop + 8} ${a.face === 'cuadrado' ? 135 : 136} ${faceTop + 18} L${a.face === 'cuadrado' ? 135 : 136} ${faceTop + 27} C120 ${faceTop + 17} 80 ${faceTop + 17} ${a.face === 'cuadrado' ? 65 : 64} ${faceTop + 27}Z`} fill={aes.accent} />}
-      {a.accessory === 'audifonos' && <g fill="none" stroke="#e5e7eb" strokeWidth="5" strokeLinecap="round"><path d="M64 84 C58 30 142 30 136 84" /><rect x="58" y="78" width="10" height="20" rx="5" fill="#e5e7eb" stroke="none" /><rect x="132" y="78" width="10" height="20" rx="5" fill="#e5e7eb" stroke="none" /></g>}
+      {a.accessory === 'audifonos' && <g fill="none" stroke={avatarTokens.ink.metal} strokeWidth="5" strokeLinecap="round"><path d="M64 84 C58 30 142 30 136 84" /><rect x="58" y="78" width="10" height="20" rx="5" fill={avatarTokens.ink.metal} stroke="none" /><rect x="132" y="78" width="10" height="20" rx="5" fill={avatarTokens.ink.metal} stroke="none" /></g>}
 
       {/* marco */}
       {frame && (() => {

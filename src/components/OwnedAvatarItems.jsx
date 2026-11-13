@@ -22,7 +22,7 @@ export default function OwnedAvatarItems() {
     catch(e){setError(e.message)}finally{working.current=false;setBusy(false)}
   }
   return <section className="surface space-y-3 p-4"><h2 className="text-sm font-bold">Tus objetos comprados</h2>
-    {error && <p role="alert" className="text-xs text-red-300">{error}</p>}
+    {error && <p role="alert" className="text-xs text-error">{error}</p>}
     {!items && !error && <p className="text-xs text-sub">Cargando inventario…</p>}
     {items?.length===0 && <p className="text-xs text-sub">Todavía no tienes cosméticos comprados.</p>}
     <div className="max-h-64 space-y-2 overflow-y-auto">{items?.map(item=><div key={item.id} className="flex items-center justify-between gap-3 rounded-2xl bg-white/5 p-3"><span className="text-xs font-bold">{item.name}</span><button type="button" disabled={busy} className="shrink-0 rounded-xl bg-pu/15 px-3 py-2 text-xs font-bold text-pu-light" onClick={()=>toggle(item)}>{item.equipped?'Equipado · Quitar':'Equipar'}</button></div>)}</div>

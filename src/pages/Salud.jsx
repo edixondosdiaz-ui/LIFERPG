@@ -1,3 +1,5 @@
+import { HydrationPanel } from '../components/PilotCards'
+import { palette } from '../design/tokens'
 import Wellbeing from '../components/Wellbeing'
 import { Link } from 'react-router-dom'
 import * as ex from '../services/experience'
@@ -8,7 +10,7 @@ import { BarChart, Meter, Ring } from '../components/charts'
 import { Card, Chip, Empty, GoalEditor, PillarHeader, Segment, Stat, Tabs, Toast, confirmDelete, useToast, xpText } from '../components/ui'
 import { addDays, avg, fmtDay, lastDays, sum, today as todayStr, weekdayLetter } from '../lib/dates'
 
-const GREEN = '#2fbf4a', BLUE = '#38bdf8', INDIGO = '#818cf8', ORANGE = '#fb923c'
+const GREEN = palette.health, BLUE = palette.hydration, INDIGO = palette.sleep, ORANGE = palette.nutrition
 const MEALS = [
   { id: 'desayuno', label: 'Desayuno', icon: '🍳' },
   { id: 'almuerzo', label: 'Almuerzo', icon: '🍛' },
@@ -74,26 +76,13 @@ function Water({ data, settings, reload, notify, saveSettings, enableNotificatio
 
   return (
     <div className="space-y-4">
-      <Card className="sticky top-20 z-10 !bg-card">
-        <div className="flex items-center gap-5">
-          <Ring pct={pct} color={BLUE} size={140}>
-            <div><p className="text-3xl font-black leading-none">{Math.min(pct, 999)}%</p><p className="mt-1 text-[11px] text-sub">{L(total)} de {L(goal)}</p></div>
-          </Ring>
-          <div className="min-w-0 flex-1 space-y-2">
-            <p className="text-xs text-sub">{total >= goal ? '¡Objetivo cumplido! Sigue hidratándote.' : `Te faltan ${L(goal - total)} para tu meta de hoy.`}</p>
-            <div className="grid grid-cols-3 gap-1.5">
-              {[250, 500, 750].map((ml) => (
-                <button key={ml} onClick={() => add(ml)} className="rounded-2xl border border-sky-400/25 bg-sky-400/10 py-2.5 text-xs font-extrabold text-sky-300 transition active:scale-95">
-                  +{ml === 1000 ? '1 L' : `${ml} ml`}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+      <Card className="!bg-card">
+        <HydrationPanel total={total} goal={goal} pct={pct} onAdd={add}>
         <form onSubmit={(e) => { e.preventDefault(); const v = Number(custom); if (v > 0) { add(v); setCustom('') } }} className="flex gap-2">
           <input className="field" type="number" inputMode="numeric" min="1" max="5000" placeholder="Otra cantidad (ml)" value={custom} onChange={(e) => setCustom(e.target.value)} />
           <button className="btn flex-none" disabled={!Number(custom)}>Agregar</button>
         </form>
+        </HydrationPanel>
       </Card>
 
       <Card title="Historial" right={<Tabs value={range} onChange={setRange} color={GREEN} items={[{ id: 'hoy', label: 'Hoy' }, { id: 'semana', label: 'Semana' }, { id: 'mes', label: 'Mes' }]} />}>
@@ -105,7 +94,7 @@ function Water({ data, settings, reload, notify, saveSettings, enableNotificatio
                   <span className="font-semibold">💧 {r.ml} ml</span>
                   <span className="flex items-center gap-3 text-[11px] text-sub">
                     {new Date(r.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' })}
-                    <button onClick={() => remove(r.id)} aria-label="Borrar registro" className="rounded-full px-2 hover:bg-red-400/15 hover:text-red-300">×</button>
+                    <button onClick={() => remove(r.id)} aria-label="Borrar registro" className="rounded-full px-2 hover:bg-error/15 hover:text-error">×</button>
                   </span>
                 </div>
               ))}
@@ -197,7 +186,7 @@ function Sleep({ data, settings, reload, notify, saveSettings }) {
             <div className="flex gap-1.5">
               {QUALITY_EMOJI.map((em, i) => (
                 <button key={i} type="button" onClick={() => setQuality(quality === i + 1 ? null : i + 1)} aria-label={QUALITY[i]} aria-pressed={quality === i + 1}
-                  className={`flex-1 rounded-2xl border py-2 text-xl transition active:scale-95 ${quality === i + 1 ? 'border-indigo-400 bg-indigo-400/20' : 'border-white/10 bg-white/5'}`}>{em}</button>
+                  className={`flex-1 rounded-2xl border py-2 text-xl transition active:scale-press ${quality === i + 1 ? 'border-sleep bg-sleep/20' : 'border-white/10 bg-white/5'}`}>{em}</button>
               ))}
             </div>
             {quality && <p className="mt-1 text-center text-[11px] text-sub">{QUALITY[quality - 1]}</p>}
@@ -226,7 +215,7 @@ function Sleep({ data, settings, reload, notify, saveSettings }) {
               <div key={s.id} className="flex items-center justify-between rounded-2xl border border-white/[.06] bg-card2/70 px-3.5 py-2.5 text-sm">
                 <div><p className="font-semibold">{fmtDay(s.slept_on)} · {fmtH(Number(s.hours))}</p>
                   <p className="text-[11px] text-sub">{s.bed_time ? `${s.bed_time.slice(0, 5)} → ${s.wake_time.slice(0, 5)}` : 'Horas manuales'}{s.quality ? ` · ${QUALITY_EMOJI[s.quality - 1]} ${QUALITY[s.quality - 1]}` : ''}</p></div>
-                <button onClick={() => remove(s.id)} aria-label="Borrar registro" className="rounded-full px-2 text-sub hover:bg-red-400/15 hover:text-red-300">×</button>
+                <button onClick={() => remove(s.id)} aria-label="Borrar registro" className="rounded-full px-2 text-sub hover:bg-error/15 hover:text-error">×</button>
               </div>
             ))}
           </div>
@@ -276,9 +265,9 @@ function Food({ data, settings, reload, notify, saveSettings }) {
             <div><p className="text-2xl font-black leading-none">{Math.round(tot.kcal)}</p><p className="mt-1 text-[10px] text-sub">de {settings.kcal_goal} kcal</p></div>
           </Ring>
           <div className="min-w-0 flex-1 space-y-2.5">
-            <Meter label="Proteínas" value={tot.protein} goal={settings.protein_goal} unit="g" color="#f87171" />
-            <Meter label="Carbohidratos" value={tot.carbs} goal={settings.carbs_goal} unit="g" color="#fbbf24" />
-            <Meter label="Grasas" value={tot.fat} goal={settings.fat_goal} unit="g" color="#60a5fa" />
+            <Meter label="Proteínas" value={tot.protein} goal={settings.protein_goal} unit="g" color={palette.protein} />
+            <Meter label="Carbohidratos" value={tot.carbs} goal={settings.carbs_goal} unit="g" color={palette.carbs} />
+            <Meter label="Grasas" value={tot.fat} goal={settings.fat_goal} unit="g" color={palette.fat} />
           </div>
         </div>
         <p className="text-[11px] text-sub">
@@ -291,7 +280,7 @@ function Food({ data, settings, reload, notify, saveSettings }) {
           <div className="grid grid-cols-4 gap-1.5">
             {MEALS.map((m) => (
               <button key={m.id} type="button" onClick={() => setType(m.id)} aria-pressed={type === m.id}
-                className={`rounded-2xl border py-2 text-[11px] font-bold transition active:scale-95 ${type === m.id ? 'border-orange-400 bg-orange-400/15 text-orange-200' : 'border-white/10 bg-white/5 text-sub'}`}>
+                className={`rounded-2xl border py-2 text-[11px] font-bold transition active:scale-press ${type === m.id ? 'border-nutrition bg-nutrition/15 text-nutrition' : 'border-white/10 bg-white/5 text-sub'}`}>
                 <span className="block text-lg">{m.icon}</span>{m.label}
               </button>
             ))}
@@ -327,7 +316,7 @@ function Food({ data, settings, reload, notify, saveSettings }) {
                         <p className="truncate text-sm font-semibold">{r.food_name}{r.quantity ? <span className="text-sub"> · {r.quantity}</span> : null}</p>
                         <p className="text-[11px] text-sub">{r.kcal} kcal · P {Number(r.protein_g)} · C {Number(r.carbs_g)} · G {Number(r.fat_g)}</p>
                       </div>
-                      <button onClick={() => remove(r.id)} aria-label="Borrar alimento" className="flex-none rounded-full px-2 text-sub hover:bg-red-400/15 hover:text-red-300">×</button>
+                      <button onClick={() => remove(r.id)} aria-label="Borrar alimento" className="flex-none rounded-full px-2 text-sub hover:bg-error/15 hover:text-error">×</button>
                     </div>
                   ))}
                 </div>

@@ -5,18 +5,58 @@
 @layer base {
   html, body {
     margin: 0;
-    background-color: #0d0d0f;
-    color: #f3f4f8;
-    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    @apply bg-app font-sans text-ink;
+    background-image: theme('backgroundImage.world');
+    background-size: 100% 100vh;
+    background-repeat: no-repeat;
+    color-scheme: dark;
+    font-variant-numeric: tabular-nums;
     font-size: 14px;
     -webkit-tap-highlight-color: transparent;
   }
+  h1, h2, h3 { @apply font-display; }
+  button, input, select, textarea { font: inherit; }
+  button, a, input, select, textarea { @apply duration-ui; }
+  button, a { -webkit-tap-highlight-color: transparent; }
 }
 
 /* Piezas reutilizables para que todas las pantallas se vean iguales */
 @layer components {
-  .surface { @apply rounded-3xl border border-white/[.07] bg-gradient-to-b from-white/[.045] to-white/[.015] shadow-[0_18px_40px_-24px_rgba(0,0,0,.9)]; }
-  .field { @apply w-full rounded-2xl border border-line bg-card2 px-4 py-3 text-sm text-ink outline-none transition placeholder:text-sub/60 focus:border-pu focus:ring-4 focus:ring-pu/15; }
-  .btn { @apply inline-flex items-center justify-center rounded-2xl bg-gradient-to-b from-pu-light to-pu-dark px-4 py-3 text-sm font-bold text-white shadow-[0_8px_24px_-8px_#a855f7] transition active:scale-95 disabled:opacity-40 disabled:shadow-none; }
+  .surface { @apply rounded-card border border-stroke-glass bg-panel bg-surface shadow-card; }
+  .field { @apply w-full min-w-0 rounded-button border border-line bg-card2 px-4 py-3 text-sm text-ink outline-none transition placeholder:text-sub focus:border-pu-light focus:ring-2 focus:ring-pu/30; }
+  .btn { @apply inline-flex min-h-[44px] items-center justify-center rounded-button bg-gradient-to-b from-pu-dark to-pu-pressed px-4 py-3 text-sm font-bold text-white shadow-button transition duration-ui hover:brightness-110 active:scale-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pu-light focus-visible:ring-offset-2 focus-visible:ring-offset-app disabled:opacity-60 disabled:shadow-none; }
   .kicker { @apply text-[11px] font-extrabold uppercase tracking-[.18em] text-sub; }
+}
+
+@layer components {
+  .visual-pilot { @apply font-sans; }
+  .visual-pilot .surface { @apply rounded-card border-stroke-glass bg-panel bg-surface shadow-card; }
+  .visual-pilot :is(h1,h2,h3,.font-extrabold,.font-black) { @apply font-display; }
+  .visual-pilot :is(.font-extrabold,.font-black,.tabular-nums) { font-variant-numeric: tabular-nums; }
+  .visual-pilot :is(button,a) { @apply transition duration-ui; }
+  .visual-pilot button:not(:disabled):active { @apply scale-press; }
+  .visual-pilot button:disabled { opacity: 1; cursor: not-allowed; }
+  .visual-pilot :is(button,a):focus-visible { @apply outline-none ring-2 ring-pu-light ring-offset-2 ring-offset-app; }
+  .pilot-hero { @apply relative overflow-hidden rounded-hero border border-stroke-glass bg-panel bg-hero p-5 shadow-hero; }
+  .pilot-eyebrow { @apply text-[11px] font-semibold uppercase tracking-widest text-sub; }
+  .pilot-pillar { @apply relative overflow-hidden rounded-card border border-stroke-glass bg-panel bg-surface p-5 shadow-card; border-left: 3px solid var(--pillar); }
+  .pilot-pillar .pillar-ink { color: var(--pillar); }
+  .pilot-pillar .pillar-fill { background-color: var(--pillar); }
+  .pilot-pillar .pillar-action { @apply mt-4 flex min-h-[44px] w-full items-center justify-between gap-3 rounded-button border border-stroke bg-panel-inset px-4 py-3 text-left text-sm font-semibold text-ink hover:bg-panel-raised active:scale-press disabled:opacity-60; }
+  .pilot-bar { @apply h-1.5 overflow-hidden rounded-full bg-ink/10; }
+  .pilot-secondary { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-button border border-stroke bg-panel-inset px-4 py-3 text-sm font-semibold text-ink hover:border-pu/60 hover:bg-panel-raised active:scale-press; }
+  .pillar-strength { --pillar: theme('colors.strength'); }
+  .pillar-health { --pillar: theme('colors.health'); }
+  .pillar-education { --pillar: theme('colors.education'); }
+  .pillar-finance { --pillar: theme('colors.finance'); }
+  .pilot-preview-phone { @apply mx-auto w-full max-w-[360px] overflow-hidden rounded-hero border border-stroke-glass bg-world shadow-hero; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  button:active, a:active { transform: none !important; }
 }

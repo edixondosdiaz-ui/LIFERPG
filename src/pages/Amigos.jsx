@@ -26,7 +26,7 @@ const Person = ({ p, children, to, onOpen }) => {
 }
 
 const Mini = ({ children, tone = 'default', ...p }) => (
-  <button {...p} className={`rounded-xl px-3 py-2 text-xs font-bold transition active:scale-95 disabled:opacity-50 ${tone === 'primary' ? 'bg-gradient-to-b from-pu-light to-pu-dark text-white' : tone === 'danger' ? 'bg-red-400/10 text-red-300' : 'bg-white/10'}`}>{children}</button>
+  <button {...p} className={`rounded-xl px-3 py-2 text-xs font-bold transition active:scale-press disabled:opacity-50 ${tone === 'primary' ? 'bg-gradient-to-b from-pu-dark to-pu-pressed text-white' : tone === 'danger' ? 'bg-error/10 text-error' : 'bg-white/10'}`}>{children}</button>
 )
 
 export default function Amigos() {
@@ -82,7 +82,7 @@ export default function Amigos() {
         )}
       </div>
 
-      {msg.text && <p key={msg.text} className={`animate-pop rounded-2xl border px-4 py-2.5 text-center text-sm font-semibold ${msg.type === 'ok' ? 'border-pu/30 bg-pu/10 text-pu-light' : 'border-red-400/30 bg-red-400/10 text-red-300'}`}>{msg.text}</p>}
+      {msg.text && <p key={msg.text} className={`animate-pop rounded-2xl border px-4 py-2.5 text-center text-sm font-semibold ${msg.type === 'ok' ? 'border-pu/30 bg-pu/10 text-pu-light' : 'border-error/30 bg-error/10 text-error'}`}>{msg.text}</p>}
       {!list && !msg.text && <p className="text-center text-sm text-sub">Cargando…</p>}
 
       {incoming.length > 0 && (

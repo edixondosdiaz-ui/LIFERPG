@@ -1,3 +1,4 @@
+import { palette } from '../design/tokens'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import * as api from '../services/api'
@@ -10,7 +11,7 @@ import { Card, Chip, Empty, PillarHeader, Stat, Toast, useToast, xpText } from '
 import { addDays, clock, fmtDay, fmtDuration, sum, today as todayStr, weekStart } from '../lib/dates'
 import { compress, e1rm, fmtGroup, groupByDay, kg, maxWeight, volumeOf } from '../lib/fitness'
 
-const RED = '#ff4d4f'
+const RED = palette.strength
 const DAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const REST = [30, 60, 90, 120, 180]
 
@@ -32,7 +33,7 @@ function GroupLine({ g, onDelete }) {
           </p>
         )}
       </div>
-      {onDelete && <button onClick={onDelete} aria-label="Borrar serie" className="flex-none rounded-full px-2 text-sub transition hover:bg-red-400/15 hover:text-red-300">×</button>}
+      {onDelete && <button onClick={onDelete} aria-label="Borrar serie" className="flex-none rounded-full px-2 text-sub transition hover:bg-error/15 hover:text-error">×</button>}
     </div>
   )
 }
@@ -140,15 +141,15 @@ function ExerciseCard({ exercise, onDelete, onRename, onChanged, notify }) {
         <div className="min-w-0">
           <h3 className="truncate text-base font-extrabold">{exercise.name}</h3>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {d.pr > 0 && <span className="rounded-full bg-yellow-400/15 px-2 py-0.5 text-[10px] font-extrabold text-yellow-300">🏆 Récord {kg(d.pr)}</span>}
+            {d.pr > 0 && <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-extrabold text-warning">🏆 Récord {kg(d.pr)}</span>}
             {d.delta !== null && (
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${d.delta >= 0 ? 'bg-emerald-400/15 text-emerald-300' : 'bg-red-400/15 text-red-300'}`}>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${d.delta >= 0 ? 'bg-success/15 text-success' : 'bg-error/15 text-error'}`}>
                 {d.delta >= 0 ? '▲' : '▼'} {Math.abs(d.delta)}% volumen vs. sesión anterior
               </span>
             )}
           </div>
         </div>
-        <div className="flex gap-1"><button onClick={onRename} aria-label={`Editar ${exercise.name}`} className="rounded-full bg-white/5 px-3 py-1 text-xs text-pu-light">✎</button><button onClick={onDelete} className="rounded-full bg-white/5 px-3 py-1 text-[11px] font-semibold text-sub transition hover:bg-red-400/15 hover:text-red-300 active:scale-95">Borrar</button></div>
+        <div className="flex gap-1"><button onClick={onRename} aria-label={`Editar ${exercise.name}`} className="rounded-full bg-white/5 px-3 py-1 text-xs text-pu-light">✎</button><button onClick={onDelete} className="rounded-full bg-white/5 px-3 py-1 text-[11px] font-semibold text-sub transition hover:bg-error/15 hover:text-error active:scale-press">Borrar</button></div>
       </div>
 
       <div className="grid grid-cols-2 gap-2.5">
@@ -164,9 +165,9 @@ function ExerciseCard({ exercise, onDelete, onRename, onChanged, notify }) {
 
       {lastGroups.length > 0 && (
         <div className="flex gap-2">
-          <button type="button" onClick={prefill} className="flex-1 rounded-2xl border border-white/10 bg-white/5 py-2 text-xs font-bold transition active:scale-95">Usar datos de la última</button>
+          <button type="button" onClick={prefill} className="flex-1 rounded-2xl border border-white/10 bg-white/5 py-2 text-xs font-bold transition active:scale-press">Usar datos de la última</button>
           <button type="button" disabled={busy || todayGroups.length > 0} onClick={repeatLast}
-            className="flex-1 rounded-2xl border border-pu/30 bg-pu/10 py-2 text-xs font-bold text-pu-light transition active:scale-95 disabled:opacity-40">Duplicar sesión anterior</button>
+            className="flex-1 rounded-2xl border border-pu/30 bg-pu/10 py-2 text-xs font-bold text-pu-light transition active:scale-press disabled:opacity-40">Duplicar sesión anterior</button>
         </div>
       )}
 
@@ -317,11 +318,11 @@ export default function Strength() {
       <PillarHeader pillar="fuerza" title="Fuerza" kicker="Entrenamiento" color={RED} icon="⚔️" />
 
       <Card className="sticky top-20 z-10 !bg-card" title="Entrenamiento de hoy"
-        right={start ? <span className="rounded-full bg-red-400/15 px-2.5 py-1 text-[10px] font-extrabold text-red-300">● En curso</span> : null}>
+        right={start ? <span className="rounded-full bg-error/15 px-2.5 py-1 text-[10px] font-extrabold text-error">● En curso</span> : null}>
         {start ? (
           <div className="flex items-center justify-between gap-3">
             <p className="text-4xl font-black tabular-nums tracking-tight">{clock(elapsed)}</p>
-            <div className="space-y-2"><button disabled={timerBusy} onClick={finishWorkout} className="btn !bg-none !bg-red-500 !shadow-none">Terminar</button><button disabled={timerBusy} className="block w-full text-xs text-sub" onClick={async()=>{if(!confirm('¿Descartar el cronómetro? Las series registradas se conservan.'))return;setTimerBusy(true);try{await ex.timerAction('workout','discard');setStart(null)}catch(e){notify(e.message,'err')}finally{setTimerBusy(false)}}}>Descartar cronómetro</button></div>
+            <div className="space-y-2"><button disabled={timerBusy} onClick={finishWorkout} className="btn !bg-none !bg-error-strong !shadow-none">Terminar</button><button disabled={timerBusy} className="block w-full text-xs text-sub" onClick={async()=>{if(!confirm('¿Descartar el cronómetro? Las series registradas se conservan.'))return;setTimerBusy(true);try{await ex.timerAction('workout','discard');setStart(null)}catch(e){notify(e.message,'err')}finally{setTimerBusy(false)}}}>Descartar cronómetro</button></div>
           </div>
         ) : (
           <div className="space-y-3">

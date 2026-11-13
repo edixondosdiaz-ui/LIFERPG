@@ -14,7 +14,7 @@ export default function Progreso() {
   return <div className="space-y-5">
     <h1 className="text-2xl font-extrabold">Progreso</h1>
     <p className="text-sm text-sub">Racha actual: <b className="text-ink">{streak} días</b></p>
-    {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+    {error && <p role="alert" className="text-sm text-error">{error}</p>}
     {!rows && !error && <p className="text-sub">Cargando actividad…</p>}
     {rows && <><section className="surface space-y-4 p-4"><h2 className="font-bold">Semana y mes actuales</h2><p className="text-xs text-sub">Días activos por pilar</p>
       {Object.entries(PILLARS).map(([key,p]) => {

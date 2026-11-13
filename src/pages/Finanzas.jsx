@@ -1,3 +1,4 @@
+import { palette } from '../design/tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import * as px from '../services/pillars'
@@ -5,7 +6,7 @@ import { BarChart, HBars, LineChart, Meter } from '../components/charts'
 import { Card, Chip, Empty, PillarHeader, Segment, Stat, Tabs, Toast, confirmDelete, useToast, xpText } from '../components/ui'
 import { addDays, compactMoney, daysBetween, fmtDay, lastDays, lastMonths, monthLabel, monthStart, money, nextRecurring, sum, today as todayStr, weekStart } from '../lib/dates'
 
-const GOLD = '#e6b43c', INCOME = '#34d399', EXPENSE = '#f87171', SAVING = '#60a5fa'
+const GOLD = palette.finance, INCOME = palette.success, EXPENSE = palette.error, SAVING = palette.fat
 const EXPENSE_CATS = ['Alimentación', 'Transporte', 'Salud', 'Educación', 'Ocio', 'Suscripciones', 'Hogar', 'Otros']
 const INCOME_CATS = ['Salario', 'Freelance', 'Negocio', 'Inversiones', 'Regalo', 'Otros']
 const KINDS = { ingreso: { label: 'Ingreso', plural: 'Ingresos', color: INCOME, sign: '+' }, gasto: { label: 'Gasto', plural: 'Gastos', color: EXPENSE, sign: '−' }, ahorro: { label: 'Ahorro', plural: 'Ahorros', color: SAVING, sign: '→' } }
@@ -55,10 +56,9 @@ function Summary({ tx, goals, goSection }) {
 
   return (
     <div className="space-y-4">
-      <section className="relative overflow-hidden rounded-3xl border border-yellow-400/30 bg-gradient-to-br from-yellow-500/20 via-card to-card p-5">
-        <div className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-yellow-400/20 blur-3xl" />
+      <section className="relative overflow-hidden rounded-3xl border border-warning/30 bg-gradient-to-br from-warning/20 via-card to-card p-5">
         <p className="relative text-[11px] font-bold text-sub">Dinero disponible</p>
-        <p className={`relative mt-1 text-4xl font-black tracking-tight ${available < 0 ? 'text-red-300' : ''}`}>{money(available)}</p>
+        <p className={`relative mt-1 text-4xl font-black tracking-tight ${available < 0 ? 'text-error' : ''}`}>{money(available)}</p>
         <div className="relative mt-3 flex items-center justify-between rounded-2xl bg-white/5 px-3.5 py-2.5 text-xs">
           <span className="text-sub">🐷 Ahorro acumulado</span><b style={{ color: SAVING }}>{money(all.save)}</b>
         </div>
@@ -83,7 +83,7 @@ function Summary({ tx, goals, goSection }) {
         <HBars items={cats} format={money} empty="Sin gastos en este periodo." />
       </Card>
 
-      <Card title="Tendencia de gasto semanal" right={wDelta !== null ? <span className={`text-[11px] font-extrabold ${wDelta <= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{wDelta >= 0 ? '▲' : '▼'} {Math.abs(wDelta)}% vs. semana pasada</span> : null}>
+      <Card title="Tendencia de gasto semanal" right={wDelta !== null ? <span className={`text-[11px] font-extrabold ${wDelta <= 0 ? 'text-success' : 'text-error'}`}>{wDelta >= 0 ? '▲' : '▼'} {Math.abs(wDelta)}% vs. semana pasada</span> : null}>
         <BarChart colors={[GOLD]} data={weeks} format={money} empty="Aún no hay gastos registrados." />
       </Card>
 
@@ -149,8 +149,8 @@ function Movements({ tx, goals, recurring, reload, notify, historyOnly = false }
           <div className="grid grid-cols-3 gap-1.5">
             {Object.entries(KINDS).map(([k, v]) => (
               <button key={k} type="button" onClick={() => pickKind(k)} aria-pressed={kind === k}
-                className="rounded-2xl border py-2.5 text-xs font-extrabold transition active:scale-95"
-                style={kind === k ? { background: v.color + '26', borderColor: v.color, color: v.color } : { background: 'rgba(255,255,255,.05)', borderColor: 'rgba(255,255,255,.1)', color: '#8b91a5' }}>{v.label}</button>
+                className="rounded-2xl border py-2.5 text-xs font-extrabold transition active:scale-press"
+                style={kind === k ? { background: v.color + '26', borderColor: v.color, color: v.color } : { background: palette.soft, borderColor: palette.grid, color: palette.text.secondary }}>{v.label}</button>
             ))}
           </div>
           <input className="field !py-5 !text-3xl font-bold" type="number" inputMode="decimal" min="1" step="any" required placeholder="Monto en COP" value={amount} onChange={(e) => setAmount(e.target.value)} />
@@ -193,7 +193,7 @@ function Movements({ tx, goals, recurring, reload, notify, historyOnly = false }
                 <div className="min-w-0"><p className="truncate text-sm font-semibold">{CAT_ICON[r.category] ?? '📦'} {r.description || r.category}</p>
                   <p className="text-[11px] text-sub">{KINDS[r.kind].label} {r.every} · próximo {fmtDay(r.next_on)}</p></div>
                 <span className="flex-none text-sm font-extrabold" style={{ color: KINDS[r.kind].color }}>{money(r.amount)}</span>
-                <button onClick={() => removeRec(r.id)} aria-label="Quitar periódico" className="flex-none rounded-full px-2 text-sub hover:bg-red-400/15 hover:text-red-300">×</button>
+                <button onClick={() => removeRec(r.id)} aria-label="Quitar periódico" className="flex-none rounded-full px-2 text-sub hover:bg-error/15 hover:text-error">×</button>
               </div>
             ))}
           </div>
@@ -216,7 +216,7 @@ function Movements({ tx, goals, recurring, reload, notify, historyOnly = false }
                       <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{x.description || x.category}</p>
                         <p className="truncate text-[11px] text-sub">{x.category}{x.from_recurring ? ' · automático' : ''}</p></div>
                       <span className="flex-none text-sm font-extrabold" style={{ color: KINDS[x.kind].color }}>{KINDS[x.kind].sign}{money(x.amount)}</span>
-                      <button onClick={() => remove(x.id)} aria-label="Borrar movimiento" className="flex-none rounded-full px-1.5 text-sub hover:bg-red-400/15 hover:text-red-300">×</button>
+                      <button onClick={() => remove(x.id)} aria-label="Borrar movimiento" className="flex-none rounded-full px-1.5 text-sub hover:bg-error/15 hover:text-error">×</button>
                     </div>
                   ))}
                 </div>
@@ -266,7 +266,7 @@ function Goals({ tx, goals, reload, notify }) {
 
       <Card title="Nueva meta">
         <form onSubmit={add} className="space-y-2.5">
-          <div className="flex flex-wrap gap-1.5">{GOAL_ICONS.map((i) => <button key={i} type="button" onClick={() => setIcon(i)} aria-pressed={icon === i} className={`h-10 w-10 rounded-xl border text-xl transition active:scale-90 ${icon === i ? 'border-yellow-400 bg-yellow-400/20' : 'border-white/10 bg-white/5'}`}>{i}</button>)}</div>
+          <div className="flex flex-wrap gap-1.5">{GOAL_ICONS.map((i) => <button key={i} type="button" onClick={() => setIcon(i)} aria-pressed={icon === i} className={`h-10 w-10 rounded-xl border text-xl transition active:scale-press ${icon === i ? 'border-warning bg-warning/20' : 'border-white/10 bg-white/5'}`}>{i}</button>)}</div>
           <input className="field" placeholder="Ej: Laptop nueva, Fondo de emergencia, Viaje" required maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
           <div className="grid grid-cols-2 gap-2">
             <input className="field" type="number" inputMode="decimal" min="1" step="any" required placeholder="Monto objetivo" value={target} onChange={(e) => setTarget(e.target.value)} />
@@ -284,18 +284,18 @@ function Goals({ tx, goals, reload, notify }) {
         const daysLeft = g.deadline ? daysBetween(t, g.deadline) : null
         const perMonth = daysLeft && daysLeft > 0 && !done ? left / Math.max(1, daysLeft / 30) : null
         return (
-          <section key={g.id} className="surface space-y-3 p-4" style={done ? { borderColor: '#34d39966' } : undefined}>
+          <section key={g.id} className="surface space-y-3 p-4" style={done ? { borderColor: palette.success + '66' } : undefined}>
             <div className="flex items-start justify-between gap-2">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="grid h-11 w-11 flex-none place-items-center rounded-2xl bg-yellow-400/15 text-2xl">{g.icon}</span>
+                <span className="grid h-11 w-11 flex-none place-items-center rounded-2xl bg-warning/15 text-2xl">{g.icon}</span>
                 <div className="min-w-0"><p className="truncate text-base font-extrabold">{g.name}</p>
                   <p className="text-[11px] text-sub">{done ? '🏁 ¡Meta cumplida!' : daysLeft === null ? 'Sin fecha límite' : daysLeft < 0 ? `Venció hace ${-daysLeft} días` : `${daysLeft} días restantes`}</p></div>
               </div>
-              <button onClick={() => remove(g)} aria-label="Borrar meta" className="rounded-full px-2 text-sub hover:bg-red-400/15 hover:text-red-300">×</button>
+              <button onClick={() => remove(g)} aria-label="Borrar meta" className="rounded-full px-2 text-sub hover:bg-error/15 hover:text-error">×</button>
             </div>
             <div>
               <div className="mb-1 flex items-baseline justify-between text-xs"><b>{money(saved)}</b><span className="text-sub">de {money(g.target_amount)} · {pct}%</span></div>
-              <div className="h-2.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: done ? INCOME : `linear-gradient(90deg, ${SAVING}99, ${SAVING})` }} /></div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full transition-all duration-ui" style={{ width: `${pct}%`, background: done ? INCOME : `linear-gradient(90deg, ${SAVING}99, ${SAVING})` }} /></div>
               {!done && <p className="mt-1.5 text-[11px] text-sub">Faltan {money(left)}{perMonth ? ` · ahorra ~${money(perMonth)} al mes` : ''}</p>}
             </div>
             {!done && (

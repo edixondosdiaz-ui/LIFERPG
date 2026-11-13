@@ -44,7 +44,7 @@ export default function Onboarding() {
     ok: 'Disponible',
     taken: 'Ese nombre ya está en uso',
   }[avail]
-  const hintColor = avail === 'ok' ? 'text-emerald-300' : avail === 'taken' || avail === 'invalid' ? 'text-red-300' : 'text-sub'
+  const hintColor = avail === 'ok' ? 'text-success' : avail === 'taken' || avail === 'invalid' ? 'text-error' : 'text-sub'
 
   async function finish() {
     setBusy(true); setErr('')
@@ -62,12 +62,12 @@ export default function Onboarding() {
   const go = (n) => { haptic(); setErr(''); setStep(n) }
 
   return (
-    <div className="mx-auto min-h-screen max-w-md bg-app px-4 pb-10 pt-6 text-ink">
+    <div className="mx-auto min-h-screen max-w-md bg-transparent px-4 pb-10 pt-6 text-ink">
       <header className="mb-6">
         <div className="flex gap-1.5">
           {STEPS.map((s, i) => (
             <div key={s} className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
-              <div className="h-full rounded-full bg-gradient-to-r from-pu-dark to-pu-light transition-all duration-500" style={{ width: i <= step ? '100%' : '0%' }} />
+              <div className="h-full rounded-full bg-gradient-to-r from-pu-dark to-pu-light transition-all duration-ui" style={{ width: i <= step ? '100%' : '0%' }} />
             </div>
           ))}
         </div>
@@ -102,7 +102,7 @@ export default function Onboarding() {
             <p className={`mt-1.5 text-xs font-semibold ${hintColor}`}>{serverHint || hint}</p>
           </div>
 
-          {err && <p className="text-xs font-semibold text-red-300">{err}</p>}
+          {err && <p className="text-xs font-semibold text-error">{err}</p>}
           <button disabled={avail !== 'ok'} onClick={() => go(1)} className="btn w-full !py-4 text-base">Continuar</button>
         </div>
       )}
@@ -115,7 +115,7 @@ export default function Onboarding() {
           </div>
           <AvatarEditor value={avatar} onChange={setAvatar} />
           <div className="flex gap-2.5">
-            <button onClick={() => go(0)} className="rounded-2xl border border-white/10 bg-white/5 px-5 text-sm font-bold text-sub active:scale-95">Atrás</button>
+            <button onClick={() => go(0)} className="rounded-2xl border border-white/10 bg-white/5 px-5 text-sm font-bold text-sub active:scale-press">Atrás</button>
             <button onClick={() => go(2)} className="btn flex-1 !py-4 text-base">Continuar</button>
           </div>
         </div>
@@ -123,8 +123,7 @@ export default function Onboarding() {
 
       {step === 2 && (
         <div key="s2" className="animate-pop space-y-6 text-center">
-          <div className="relative overflow-hidden rounded-[28px] border border-white/[.08] bg-gradient-to-br from-pu-dark/45 via-card to-card px-5 pb-6 pt-8 shadow-[0_24px_60px_-24px_rgba(168,85,247,.65)]">
-            <div className="pointer-events-none absolute -top-16 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-pu/30 blur-3xl" />
+          <div className="relative overflow-hidden rounded-hero border border-white/[.08] bg-gradient-to-br from-pu-dark/45 via-card to-card px-5 pb-6 pt-8 shadow-card">
             <div className="relative mx-auto w-fit"><Avatar avatar={avatar} view="bust" size={170} /></div>
             <p className="relative mt-4 text-2xl font-extrabold tracking-tight">@{u}</p>
             <div className="relative mt-5 grid grid-cols-2 gap-2.5">
@@ -136,9 +135,9 @@ export default function Onboarding() {
             <h1 className="text-2xl font-extrabold tracking-tight">Tu versión futura está lista</h1>
             <p className="mt-2 text-sm text-sub">Cada hábito que registres la acerca un poco más a ti.</p>
           </div>
-          {err && <p className="text-xs font-semibold text-red-300">{err}</p>}
+          {err && <p className="text-xs font-semibold text-error">{err}</p>}
           <div className="flex gap-2.5">
-            <button onClick={() => go(1)} className="rounded-2xl border border-white/10 bg-white/5 px-5 text-sm font-bold text-sub active:scale-95">Editar</button>
+            <button onClick={() => go(1)} className="rounded-2xl border border-white/10 bg-white/5 px-5 text-sm font-bold text-sub active:scale-press">Editar</button>
             <button disabled={busy} onClick={finish} className="btn flex-1 !py-4 text-base">{busy ? 'Guardando…' : 'Iniciar mi evolución'}</button>
           </div>
           <p className="text-[11px] text-sub">Sesión: {user?.email}</p>

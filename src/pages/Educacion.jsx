@@ -1,3 +1,4 @@
+import { palette } from '../design/tokens'
 import StudyFocus from '../components/StudyFocus'
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
@@ -8,9 +9,9 @@ import { Card, Chip, Empty, GoalEditor, PillarHeader, Stat, Tabs, Toast, confirm
 import { addDays, daysBetween, fmtDay, fmtHours, lastDays, streakOf, sum, today as todayStr, weekStart, weekdayLetter } from '../lib/dates'
 import { levelProgress } from '../lib/xp'
 
-const SKY = '#38bdf8'
+const SKY = palette.education
 const DEFAULT_CATS = ['Matemáticas', 'Programación', 'Idiomas', 'Lectura', 'Ciencias', 'General']
-const PRIORITY = { alta: { label: 'Alta', color: '#f87171', w: 0 }, media: { label: 'Media', color: '#fbbf24', w: 1 }, baja: { label: 'Baja', color: '#34d399', w: 2 } }
+const PRIORITY = { alta: { label: 'Alta', color: palette.error, w: 0 }, media: { label: 'Media', color: palette.warning, w: 1 }, baja: { label: 'Baja', color: palette.success, w: 2 } }
 /* --------------------------------- Tareas --------------------------------- */
 function Tasks({ tasks, reload, notify }) {
   const { refreshProfile } = useAuth()
@@ -41,17 +42,17 @@ function Tasks({ tasks, reload, notify }) {
     const late = !task.done && task.due_on && task.due_on < t
     const diff = task.due_on ? daysBetween(t, task.due_on) : null
     return (
-      <div className={`flex items-center gap-3 rounded-2xl border px-3 py-2.5 ${task.done ? 'border-white/[.05] bg-card2/40 opacity-60' : late ? 'border-red-400/30 bg-red-400/5' : 'border-white/[.06] bg-card2/70'}`}>
+      <div className={`flex items-center gap-3 rounded-2xl border px-3 py-2.5 ${task.done ? 'border-white/[.05] bg-card2/40' : late ? 'border-error/30 bg-error/5' : 'border-white/[.06] bg-card2/70'}`}>
         <button onClick={() => toggle(task)} aria-label={task.done ? 'Reabrir tarea' : 'Completar tarea'}
-          className={`grid h-6 w-6 flex-none place-items-center rounded-full border-2 text-xs transition active:scale-90 ${task.done ? 'border-sky-400 bg-sky-400 text-app' : 'border-white/25'}`}>{task.done ? '✓' : ''}</button>
+          className={`grid h-6 w-6 flex-none place-items-center rounded-full border-2 text-xs transition active:scale-press ${task.done ? 'border-education bg-education text-app' : 'border-white/25'}`}>{task.done ? '✓' : ''}</button>
         <div className="min-w-0 flex-1">
           <p className={`truncate text-sm font-semibold ${task.done ? 'line-through' : ''}`}>{task.title}</p>
           <p className="text-[11px] text-sub">
             <span style={{ color: PRIORITY[task.priority].color }}>● {PRIORITY[task.priority].label}</span>
-            {task.due_on && <span className={late ? 'text-red-300' : ''}> · {fmtDay(task.due_on)}{!task.done && (diff === 0 ? ' (hoy)' : diff === 1 ? ' (mañana)' : late ? ` (hace ${-diff} d)` : '')}</span>}
+            {task.due_on && <span className={late ? 'text-error' : ''}> · {fmtDay(task.due_on)}{!task.done && (diff === 0 ? ' (hoy)' : diff === 1 ? ' (mañana)' : late ? ` (hace ${-diff} d)` : '')}</span>}
           </p>
         </div>
-        <button onClick={() => remove(task.id)} aria-label="Borrar tarea" className="flex-none rounded-full px-2 text-sub hover:bg-red-400/15 hover:text-red-300">×</button>
+        <button onClick={() => remove(task.id)} aria-label="Borrar tarea" className="flex-none rounded-full px-2 text-sub hover:bg-error/15 hover:text-error">×</button>
       </div>
     )
   }
@@ -70,7 +71,7 @@ function Tasks({ tasks, reload, notify }) {
         </form>
       </Card>
 
-      <Card title={`Pendientes (${pending.length})`} right={tasks.length ? <span className="text-[11px] font-bold text-sky-300">{pctDone}% completado</span> : null}>
+      <Card title={`Pendientes (${pending.length})`} right={tasks.length ? <span className="text-[11px] font-bold text-education">{pctDone}% completado</span> : null}>
         {pending.length === 0 ? <Empty title={tasks.length ? '¡Todo al día!' : 'Sin tareas todavía'} text={tasks.length ? 'Completaste todas tus tareas.' : 'Agrega tus entregas y exámenes para no perderlos de vista.'} /> : <div className="space-y-2">{pending.map((x) => <Row key={x.id} task={x} />)}</div>}
       </Card>
 
@@ -130,7 +131,7 @@ function Progress({ sessions, tasks, settings, saveSettings, reload, notify }) {
           <div className="min-w-0 flex-1 space-y-2">
             <p className="text-sm font-extrabold">{fmtHours(minWeek)} <span className="font-medium text-sub">de {fmtHours(goal)}</span></p>
             <p className="text-[11px] text-sub">{minWeek >= goal ? '🎯 ¡Objetivo semanal cumplido!' : `Te faltan ${fmtHours(goal - minWeek)} esta semana.`}</p>
-            <Meter label="Nivel educativo" value={lp.current} goal={lp.needed} unit="XP" color="#a78bfa" format={(v) => Math.round(v)} />
+            <Meter label="Nivel educativo" value={lp.current} goal={lp.needed} unit="XP" color={palette.brand.light} format={(v) => Math.round(v)} />
             <p className="text-[11px] text-sub">Nivel <b className="text-ink">{lp.level}</b> · {xp.toLocaleString('es-CO')} XP</p>
           </div>
         </div>
@@ -159,10 +160,10 @@ function Progress({ sessions, tasks, settings, saveSettings, reload, notify }) {
         <Card title="Logros de estudio">
           <div className="space-y-2">
             {ach.map((a) => (
-              <div key={a.id} className={`flex items-center gap-3 rounded-2xl border px-3 py-2.5 ${a.unlocked ? 'border-sky-400/30 bg-sky-400/10' : 'border-white/[.06] bg-card2/70 opacity-80'}`}>
+              <div key={a.id} className={`flex items-center gap-3 rounded-2xl border px-3 py-2.5 ${a.unlocked ? 'border-education/30 bg-education/10' : 'border-white/[.06] bg-card2/70'}`}>
                 <span className="text-2xl">{a.icon}</span>
                 <div className="min-w-0 flex-1"><p className="text-sm font-bold">{a.name}</p><p className="text-[11px] text-sub">{a.description}</p>
-                  {!a.unlocked && <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-sky-400" style={{ width: `${(a.progress / a.target) * 100}%` }} /></div>}</div>
+                  {!a.unlocked && <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-education" style={{ width: `${(a.progress / a.target) * 100}%` }} /></div>}</div>
                 <span className="text-[11px] font-bold text-sub">{a.unlocked ? '✓' : `${a.progress}/${a.target}`}</span>
               </div>
             ))}
@@ -176,7 +177,7 @@ function Progress({ sessions, tasks, settings, saveSettings, reload, notify }) {
             {sessions.slice(0, 8).map((s) => (
               <div key={s.id} className="flex items-center justify-between gap-2 rounded-2xl border border-white/[.06] bg-card2/70 px-3.5 py-2.5">
                 <div className="min-w-0"><p className="truncate text-sm font-semibold">{s.mode === 'pomodoro' ? '🍅' : '⏱'} {s.topic}</p><p className="text-[11px] text-sub">{s.category} · {fmtDay(s.studied_on)} · {fmtHours(s.minutes)}</p></div>
-                <button onClick={() => remove(s.id)} aria-label="Borrar sesión" className="flex-none rounded-full px-2 text-sub hover:bg-red-400/15 hover:text-red-300">×</button>
+                <button onClick={() => remove(s.id)} aria-label="Borrar sesión" className="flex-none rounded-full px-2 text-sub hover:bg-error/15 hover:text-error">×</button>
               </div>
             ))}
           </div>

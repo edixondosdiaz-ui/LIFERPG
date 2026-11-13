@@ -36,10 +36,10 @@ export default function NameChange({ onChanged }) {
     <p className="text-xs text-sub">{wallet ? `${wallet.name_changes} cambios disponibles` : 'Consultando cambios…'}</p>
     {open && (wallet?.name_changes>0 ? <form className="space-y-3 rounded-2xl bg-black/20 p-3" onSubmit={e=>{e.preventDefault();if(status?.available)setConfirming(true)}}>
       <label className="block text-left text-xs">Nuevo @usuario<input className="field mt-2" disabled={busy} autoCapitalize="none" autoCorrect="off" spellCheck={false} required minLength={3} maxLength={20} value={value} onChange={e=>setValue(e.target.value)} /></label>
-      <p role="status" className={`text-xs ${status?.available?'text-emerald-300':'text-sub'}`}>{status?.message || 'Comprobando disponibilidad…'}</p>
+      <p role="status" className={`text-xs ${status?.available?'text-success':'text-sub'}`}>{status?.message || 'Comprobando disponibilidad…'}</p>
       <p className="text-xs text-sub">Tu nombre anterior quedará reservado para ti durante {wallet.reservation_days} días.</p>
       {confirming ? <div role="alertdialog" aria-label="Confirmar cambio de usuario" className="space-y-3"><p className="text-sm">Vas a usar @{candidate}. Te quedan {wallet.name_changes} cambios; se consumirá uno y quedarán {wallet.name_changes-1}.</p><div className="flex gap-2"><button type="button" disabled={busy} className="flex-1 rounded-xl bg-white/10 py-3 text-xs" onClick={()=>setConfirming(false)}>Cancelar</button><button type="button" disabled={busy} className="btn flex-1" onClick={save}>{busy?'Guardando…':'Confirmar cambio'}</button></div></div> : <button className="btn w-full" disabled={!status?.available || busy}>Revisar cambio</button>}
     </form> : <p className="text-sm text-sub">{wallet ? <>No tienes cambios disponibles. <Link to="/tienda?categoria=utilities" className="font-bold text-pu-light">Conseguir una tarjeta →</Link></> : 'Consultando saldo de cambios…'}</p>)}
-    {error && <p role="alert" className="text-xs text-red-300">{error}</p>}
+    {error && <p role="alert" className="text-xs text-error">{error}</p>}
   </div>
 }
