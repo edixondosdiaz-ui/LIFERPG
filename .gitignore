@@ -14,3 +14,4 @@ supabase/*
 !supabase/09_hoy_racha_habitos.sql
 !supabase/10_fuerza_rutinas.sql
 !supabase/11_salud_orden.sql
+!supabase/12_perfiles_publicos_ranking.sql

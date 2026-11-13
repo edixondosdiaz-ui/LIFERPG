@@ -48,7 +48,8 @@ export default function FriendProfile() {
       {err && <p className="rounded-2xl border border-error/30 bg-error/10 p-4 text-sm text-error">{err}</p>}
       {!them && !err && <p className="text-center text-sm text-sub">Cargando…</p>}
 
-      {them && me && (
+      {them?.private && <section className="surface space-y-3 p-4"><Avatar avatar={them.avatar} view="head" size={70}/><h1 className="break-words text-xl font-extrabold">@{them.username}</h1><p className="text-sm text-sub">Este perfil es privado.</p></section>}
+      {them && me && !them.private && (
         <>
           <section className="relative overflow-hidden rounded-hero border border-white/[.08] bg-gradient-to-br from-pu-dark/45 via-card to-card p-6 text-center shadow-card">
             <div className="relative mx-auto w-fit"><Avatar avatar={them.avatar} equipped={them.equipped} view="bust" size={140} /></div>

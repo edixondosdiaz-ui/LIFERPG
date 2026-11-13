@@ -13,7 +13,7 @@ const Person = ({ p, children, to, onOpen }) => {
       <Avatar avatar={p.avatar} view="head" size={44} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-extrabold">@{p.username}</p>
-        <p className="truncate text-[11px] text-sub">Niv {levelFromXp(p.xp ?? 0)}</p>
+        <p className="truncate text-[11px] text-sub">{p.xp==null?'Perfil privado':`Niv ${levelFromXp(p.xp)}`}</p>
       </div>
     </>
   )

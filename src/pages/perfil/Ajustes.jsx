@@ -1,3 +1,4 @@
+import ProfilePrivacySwitch from '../../components/ProfilePrivacySwitch'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -13,14 +14,14 @@ export default function Ajustes() {
   const [showDelete, setShowDelete] = useState(false)
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
-  useEffect(() => { ex.getPreferences().then(p => setPrefs({ units: 'km', profile_visibility: 'friends', notifications: typeof Notification !== 'undefined' && Notification.permission === 'granted', ...p })).catch(e => setMsg(e.message)) }, [])
+  useEffect(() => { ex.getPreferences().then(p => setPrefs({ units: 'km', notifications: typeof Notification !== 'undefined' && Notification.permission === 'granted', ...p })).catch(e => setMsg(e.message)) }, [])
   async function run(work, message) {
     setBusy(true); setMsg('')
     try { await work(); setMsg(message) } catch (e) { setMsg(e.message) } finally { setBusy(false) }
   }
   async function save(e) {
     e.preventDefault()
-    await run(async () => { await ex.savePreferences({ units: prefs.units, profile_visibility: prefs.profile_visibility, notifications: prefs.notifications }); await refreshProfile() }, 'Configuración guardada')
+    await run(async () => { await ex.savePreferences({ units: prefs.units, notifications: prefs.notifications }); await refreshProfile() }, 'Configuración guardada')
   }
   async function changePassword(e) {
     e.preventDefault()
@@ -37,10 +38,10 @@ export default function Ajustes() {
     <form onSubmit={save} className="surface space-y-4 p-4">
       <p className="text-xs text-sub">Correo (solo lectura)</p><p className="break-all text-sm">{user?.email}</p>
       <p className="text-sm">Nombre visible: <b>@{profile?.username}</b></p><Link to="/perfil" className="block text-xs font-bold text-pu-light">Cambiar usuario desde Mi perfil →</Link>
+      <ProfilePrivacySwitch/>
       {prefs && <>
         <label className="block text-sm">Unidades<select className="field mt-2" value={prefs.units} onChange={e => setPrefs({...prefs, units:e.target.value})}><option value="km">Kilómetros (km)</option><option value="mi">Millas (mi)</option></select></label>
-        <label className="block text-sm">Privacidad del perfil<select className="field mt-2" value={prefs.profile_visibility} onChange={e => setPrefs({...prefs,profile_visibility:e.target.value})}><option value="friends">Solo amigos</option><option value="public">Público</option></select></label>
-        <p className="text-xs text-sub">El ranking conserva tu usuario y XP. El perfil nunca muestra tu correo ni ubicación.</p>
+        <p className="text-xs text-sub">Tu correo, ubicación y rutas nunca se comparten. La posición en el ranking se conserva; si el perfil es privado, se ocultan el nivel y el XP.</p>
         <label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={prefs.notifications} onChange={async e => { const enabled=e.target.checked; if (enabled) { if (typeof Notification === 'undefined') return setMsg('Tu navegador no admite notificaciones.'); if (await Notification.requestPermission() !== 'granted') return setMsg('Activa el permiso de notificaciones en el navegador.'); } setPrefs({...prefs, notifications:enabled}) }} />Permitir recordatorios con la app abierta</label>
         <p className="text-xs text-sub">Notificaciones con la app cerrada: Disponible pronto.</p>
       </>}
