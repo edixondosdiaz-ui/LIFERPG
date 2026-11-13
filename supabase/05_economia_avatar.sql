@@ -1,8 +1,21 @@
 -- Aplicación manual DESPUÉS de 04_hoy_perfil.sql. No ejecutado por Codex.
--- Aditivo: conserva saldos, compras, inventario y avatares existentes.
+-- Reejecutable: conserva saldos, compras, inventario, avatares y reglas existentes.
+-- Ejecutar COMPLETO. No elimina registros ni reactiva compras o recompensas.
 begin;
+-- Captura el estado ANTES de crear objetos. Una primera instalación debe actualizar
+-- los endpoints anteriores del 04. Si ya hay funciones de economía, solo agrega
+-- las faltantes y no sustituye implementaciones existentes o posteriores.
+do $install_state$ begin
+  perform set_config('liferpg.economy05_install',
+    (to_regprocedure('public.username_status(text)') is null
+     and to_regprocedure('public.shop_wallet()') is null
+     and to_regprocedure('public.purchase_shop_item(text,uuid,integer)') is null
+     and to_regprocedure('public.claim_economy_rewards()') is null
+     and to_regprocedure('public.activity_days_with_protection(uuid)') is null)::text,true);
+end $install_state$;
 
-create table public.economy_rules (
+
+create table if not exists public.economy_rules (
   id boolean primary key default true check(id),
   level_coins integer not null default 15 check(level_coins>=0),
   weekly_streak_coins integer not null default 25 check(weekly_streak_coins>=0),
@@ -13,29 +26,42 @@ create table public.economy_rules (
   name_reservation_days integer not null default 30 check(name_reservation_days>=1),
   max_streak_guards integer not null default 2 check(max_streak_guards between 1 and 2)
 );
-insert into public.economy_rules(id) values(true);
+insert into public.economy_rules(id) values(true) on conflict(id) do nothing;
 alter table public.economy_rules enable row level security;
-create policy economy_rules_read on public.economy_rules for select to authenticated using(true);
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='economy_rules' and policyname='economy_rules_read') then
+    create policy economy_rules_read on public.economy_rules for select to authenticated using(true);
+  end if;
+end $policy$;
 revoke all on public.economy_rules from anon, authenticated;
 grant select on public.economy_rules to authenticated;
 
 -- Solo el servidor/una futura integración de pagos puede otorgar Premium.
-create table public.premium_entitlements (
+create table if not exists public.premium_entitlements (
   user_id uuid primary key references auth.users(id) on delete cascade,
   starts_at timestamptz not null default now(),
   ends_at timestamptz not null,
   check(ends_at>starts_at)
 );
 alter table public.premium_entitlements enable row level security;
-create policy premium_own on public.premium_entitlements for select to authenticated using(user_id=auth.uid());
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='premium_entitlements' and policyname='premium_own') then
+    create policy premium_own on public.premium_entitlements for select to authenticated using(user_id=auth.uid());
+  end if;
+end $policy$;
 revoke all on public.premium_entitlements from anon, authenticated;
 grant select on public.premium_entitlements to authenticated;
-create function public.has_premium(p_uid uuid) returns boolean
+do $bootstrap$
+begin
+  if to_regprocedure('public.has_premium(uuid)') is null then
+    execute $definition$create function public.has_premium(p_uid uuid) returns boolean
 language sql stable security definer set search_path=public as $$
   select exists(select 1 from public.premium_entitlements where user_id=p_uid and starts_at<=now() and ends_at>now())
-$$;
+$$;$definition$;
+  end if;
+end $bootstrap$;
 
-create table public.coin_ledger (
+create table if not exists public.coin_ledger (
   id bigint generated always as identity primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
   amount integer not null,
@@ -44,15 +70,22 @@ create table public.coin_ledger (
   reference text,
   created_at timestamptz not null default now()
 );
-create index coin_ledger_user_date on public.coin_ledger(user_id,id desc);
+create index if not exists coin_ledger_user_date on public.coin_ledger(user_id,id desc);
 alter table public.coin_ledger enable row level security;
-create policy coin_ledger_own on public.coin_ledger for select to authenticated using(user_id=auth.uid());
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='coin_ledger' and policyname='coin_ledger_own') then
+    create policy coin_ledger_own on public.coin_ledger for select to authenticated using(user_id=auth.uid());
+  end if;
+end $policy$;
 revoke all on public.coin_ledger from anon, authenticated;
 grant select on public.coin_ledger to authenticated;
 
 -- Captura TAMBIÉN las recompensas de logros y bienvenida de RPC anteriores.
 -- Los saldos previos se reconocen como apertura, sin recalcular ni cambiarlos.
-create function public.record_coin_movement() returns trigger
+do $bootstrap$
+begin
+  if to_regprocedure('public.record_coin_movement()') is null then
+    execute $definition$create function public.record_coin_movement() returns trigger
 language plpgsql security definer set search_path=public as $$
 begin
   if tg_op='INSERT' then
@@ -67,65 +100,95 @@ begin
         nullif(current_setting('liferpg.coin_reference',true),''));
   end if;
   return new;
-end $$;
-create trigger coin_ledger_insert after insert on public.profiles for each row execute function public.record_coin_movement();
-create trigger coin_ledger_update after update of coins on public.profiles for each row execute function public.record_coin_movement();
+end $$;$definition$;
+  end if;
+end $bootstrap$;
+do $trigger$ begin
+  if not exists(select 1 from pg_trigger where tgrelid='public.profiles'::regclass and tgname='coin_ledger_insert' and not tgisinternal) then
+    create trigger coin_ledger_insert after insert on public.profiles for each row execute function public.record_coin_movement();
+  end if;
+end $trigger$;
+do $trigger$ begin
+  if not exists(select 1 from pg_trigger where tgrelid='public.profiles'::regclass and tgname='coin_ledger_update' and not tgisinternal) then
+    create trigger coin_ledger_update after update of coins on public.profiles for each row execute function public.record_coin_movement();
+  end if;
+end $trigger$;
 
-create table public.coin_reward_claims (
+create table if not exists public.coin_reward_claims (
   user_id uuid not null references auth.users(id) on delete cascade,
   reward_key text not null,
   created_at timestamptz not null default now(),
   primary key(user_id,reward_key)
 );
 alter table public.coin_reward_claims enable row level security;
-create policy coin_claims_own on public.coin_reward_claims for select to authenticated using(user_id=auth.uid());
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='coin_reward_claims' and policyname='coin_claims_own') then
+    create policy coin_claims_own on public.coin_reward_claims for select to authenticated using(user_id=auth.uid());
+  end if;
+end $policy$;
 revoke all on public.coin_reward_claims from anon, authenticated;
 grant select on public.coin_reward_claims to authenticated;
 
-create table public.utility_inventory (
+create table if not exists public.utility_inventory (
   user_id uuid not null references auth.users(id) on delete cascade,
   utility text not null check(utility in ('rename_card','streak_guard')),
   quantity integer not null default 0 check(quantity>=0 and (utility<>'streak_guard' or quantity<=2)),
   primary key(user_id,utility)
 );
 alter table public.utility_inventory enable row level security;
-create policy utilities_own on public.utility_inventory for select to authenticated using(user_id=auth.uid());
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='utility_inventory' and policyname='utilities_own') then
+    create policy utilities_own on public.utility_inventory for select to authenticated using(user_id=auth.uid());
+  end if;
+end $policy$;
 revoke all on public.utility_inventory from anon, authenticated;
 grant select on public.utility_inventory to authenticated;
 
 alter table public.username_changes add column if not exists credit_source text not null default 'free';
-create table public.username_reservations (
+create table if not exists public.username_reservations (
   username text primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
   reserved_until timestamptz not null
 );
-create index username_reservations_user on public.username_reservations(user_id,reserved_until);
+create index if not exists username_reservations_user on public.username_reservations(user_id,reserved_until);
 alter table public.username_reservations enable row level security;
-create policy reservations_own on public.username_reservations for select to authenticated using(user_id=auth.uid());
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='username_reservations' and policyname='reservations_own') then
+    create policy reservations_own on public.username_reservations for select to authenticated using(user_id=auth.uid());
+  end if;
+end $policy$;
 revoke all on public.username_reservations from anon, authenticated;
 grant select on public.username_reservations to authenticated;
-create table public.username_history (
+create table if not exists public.username_history (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   previous_username text not null,
   new_username text not null,
   changed_at timestamptz not null default now()
 );
-create index username_history_user on public.username_history(user_id,changed_at desc);
+create index if not exists username_history_user on public.username_history(user_id,changed_at desc);
 alter table public.username_history enable row level security;
-create policy username_history_own on public.username_history for select to authenticated using(user_id=auth.uid());
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='username_history' and policyname='username_history_own') then
+    create policy username_history_own on public.username_history for select to authenticated using(user_id=auth.uid());
+  end if;
+end $policy$;
 revoke all on public.username_history from anon, authenticated;
 grant select on public.username_history to authenticated;
 
 -- Lista editable por el dueño. Se compara sin _, números equivalentes ni mayúsculas.
-create table public.blocked_username_terms(term text primary key);
+create table if not exists public.blocked_username_terms(term text primary key);
 insert into public.blocked_username_terms(term) values
  ('admin'),('administrador'),('soporte'),('support'),('liferpg'),('moderador'),('root'),
- ('mierda'),('puta'),('puto'),('marica'),('gonorrea'),('hijueputa'),('hijueput'),('nazi'),('hitler');
+ ('mierda'),('puta'),('puto'),('marica'),('gonorrea'),('hijueputa'),('hijueput'),('nazi'),('hitler')
+on conflict(term) do nothing;
 alter table public.blocked_username_terms enable row level security;
 revoke all on public.blocked_username_terms from anon, authenticated;
 
-create function public.username_status(p_username text) returns jsonb
+do $bootstrap$
+begin
+  if to_regprocedure('public.username_status(text)') is null then
+    execute $definition$create function public.username_status(p_username text) returns jsonb
 language plpgsql security definer set search_path=public as $$
 declare u text:=lower(trim(p_username)); cleaned text;
 begin
@@ -144,13 +207,23 @@ begin
     return jsonb_build_object('available',false,'message','Ese usuario está reservado temporalmente');
   end if;
   return jsonb_build_object('available',true,'message','Disponible');
-end $$;
-create or replace function public.username_available(p_username text) returns boolean
+end $$;$definition$;
+  end if;
+end $bootstrap$;
+do $bootstrap$
+begin
+  if to_regprocedure('public.username_available(text)') is null or current_setting('liferpg.economy05_install',true)='true' then
+    execute $definition$create or replace function public.username_available(p_username text) returns boolean
 language sql security definer set search_path=public as $$
   select (public.username_status(p_username)->>'available')::boolean
-$$;
+$$;$definition$;
+  end if;
+end $bootstrap$;
 
-create or replace function public.my_name_changes() returns integer
+do $bootstrap$
+begin
+  if to_regprocedure('public.my_name_changes()') is null or current_setting('liferpg.economy05_install',true)='true' then
+    execute $definition$create or replace function public.my_name_changes() returns integer
 language sql stable security definer set search_path=public as $$
   select greatest(0,(select free_name_changes from public.app_product_settings where id)
     -(select count(*)::int from public.username_changes where user_id=auth.uid() and credit_source='free'))
@@ -158,9 +231,14 @@ language sql stable security definer set search_path=public as $$
   +case when public.has_premium(auth.uid()) and not exists(select 1 from public.username_changes
     where user_id=auth.uid() and credit_source='premium'
     and changed_at>now()-make_interval(days=>(select premium_rename_days from public.economy_rules where id))) then 1 else 0 end
-$$;
+$$;$definition$;
+  end if;
+end $bootstrap$;
 
-create or replace function public.change_my_username(p_username text) returns void
+do $bootstrap$
+begin
+  if to_regprocedure('public.change_my_username(text)') is null or current_setting('liferpg.economy05_install',true)='true' then
+    execute $definition$create or replace function public.change_my_username(p_username text) returns void
 language plpgsql security definer set search_path=public as $$
 declare u text:=lower(trim(p_username)); old_name text; source text; status jsonb;
 begin
@@ -189,10 +267,15 @@ begin
   insert into public.username_changes(user_id,credit_source) values(auth.uid(),source);
   insert into public.username_history(user_id,previous_username,new_username) values(auth.uid(),old_name,u);
 exception when unique_violation then raise exception 'Ese usuario ya no está disponible';
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 
 -- Aplica las mismas reglas al onboarding y a cualquier RPC anterior.
-create function public.validate_username_write() returns trigger
+do $bootstrap$
+begin
+  if to_regprocedure('public.validate_username_write()') is null then
+    execute $definition$create function public.validate_username_write() returns trigger
 language plpgsql security definer set search_path=public as $$
 declare status jsonb;
 begin
@@ -203,13 +286,19 @@ begin
   status:=public.username_status(new.username);
   if not (status->>'available')::boolean then raise exception '%',status->>'message'; end if;
   return new;
-end $$;
-create trigger validate_username_write before insert or update of username on public.profiles
+end $$;$definition$;
+  end if;
+end $bootstrap$;
+do $trigger$ begin
+  if not exists(select 1 from pg_trigger where tgrelid='public.profiles'::regclass and tgname='validate_username_write' and not tgisinternal) then
+    create trigger validate_username_write before insert or update of username on public.profiles
   for each row execute function public.validate_username_write();
+  end if;
+end $trigger$;
 
 alter table public.shop_items add column if not exists section text
   check(section in ('avatar','backgrounds','frames','titles','utilities'));
-create table public.shop_requests (
+create table if not exists public.shop_requests (
   user_id uuid not null references auth.users(id) on delete cascade,
   request_id uuid not null,
   item_id text not null references public.shop_items(id),
@@ -234,7 +323,10 @@ insert into public.shop_items(id,category,kind,name,description,rarity,price_coi
  ('title_consistent','accesorio','titulo','Constante','Título cosmético. No cambia tu XP ni ranking.','common',90,false,'{"slot":"title","text":"Constante"}',140,'titles')
 on conflict(id) do nothing;
 
-create function public.shop_wallet() returns jsonb
+do $bootstrap$
+begin
+  if to_regprocedure('public.shop_wallet()') is null then
+    execute $definition$create function public.shop_wallet() returns jsonb
 language plpgsql security definer set search_path=public as $$
 declare balance int;
 begin
@@ -248,16 +340,26 @@ begin
     'discount',(select premium_discount from public.economy_rules where id),
     'name_changes',public.my_name_changes(),'reservation_days',(select name_reservation_days from public.economy_rules where id),
     'utilities',coalesce((select jsonb_object_agg(utility,quantity) from public.utility_inventory where user_id=auth.uid()),'{}'::jsonb));
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 
-create function public.my_cosmetics() returns jsonb
+do $bootstrap$
+begin
+  if to_regprocedure('public.my_cosmetics()') is null then
+    execute $definition$create function public.my_cosmetics() returns jsonb
 language sql stable security definer set search_path=public as $$
   select coalesce(jsonb_agg(jsonb_build_object('id',s.id,'name',s.name,'data',s.data,'equipped',i.equipped) order by s.sort),'[]'::jsonb)
   from public.inventory i join public.shop_items s on s.id=i.item_id
   where i.user_id=auth.uid() and s.data->>'slot' is not null
-$$;
+$$;$definition$;
+  end if;
+end $bootstrap$;
 
-create function public.purchase_shop_item(p_item_id text,p_request_id uuid,p_expected_price integer default null) returns jsonb
+do $bootstrap$
+begin
+  if to_regprocedure('public.purchase_shop_item(text,uuid,integer)') is null then
+    execute $definition$create function public.purchase_shop_item(p_item_id text,p_request_id uuid,p_expected_price integer default null) returns jsonb
 language plpgsql security definer set search_path=public as $$
 declare item public.shop_items; balance int; price int; premium boolean; v_utility text; result jsonb; purchase_id uuid;
 begin
@@ -289,13 +391,23 @@ begin
   result:=jsonb_build_object('coins',balance-price,'price',price,'purchase_id',purchase_id);
   insert into public.shop_requests(user_id,request_id,item_id,result) values(auth.uid(),p_request_id,p_item_id,result);
   return result;
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 -- Conserva el endpoint anterior y cierra la posibilidad de saltarse las reglas nuevas.
-create or replace function public.buy_item(p_item_id text) returns jsonb
+do $bootstrap$
+begin
+  if to_regprocedure('public.buy_item(text)') is null or current_setting('liferpg.economy05_install',true)='true' then
+    execute $definition$create or replace function public.buy_item(p_item_id text) returns jsonb
 language sql security definer set search_path=public as $$
   select public.purchase_shop_item(p_item_id,gen_random_uuid())
-$$;
-create or replace function public.equip_item(p_item_id text,p_equip boolean) returns void
+$$;$definition$;
+  end if;
+end $bootstrap$;
+do $bootstrap$
+begin
+  if to_regprocedure('public.equip_item(text,boolean)') is null or current_setting('liferpg.economy05_install',true)='true' then
+    execute $definition$create or replace function public.equip_item(p_item_id text,p_equip boolean) returns void
 language plpgsql security definer set search_path=public as $$
 declare slot text;
 begin
@@ -305,9 +417,14 @@ begin
   if not found or slot is null then raise exception 'No tienes un cosmético equipable con ese identificador'; end if;
   if p_equip then update public.inventory i set equipped=false from public.shop_items s where i.item_id=s.id and i.user_id=auth.uid() and s.data->>'slot'=slot; end if;
   update public.inventory set equipped=p_equip where user_id=auth.uid() and item_id=p_item_id;
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 
-create function public.claim_economy_rewards() returns integer
+do $bootstrap$
+begin
+  if to_regprocedure('public.claim_economy_rewards()') is null then
+    execute $definition$create function public.claim_economy_rewards() returns integer
 language plpgsql security definer set search_path=public as $$
 declare p public.profiles; r public.economy_rules; k text; amount int; total int:=0; level int; inserted int;
 begin
@@ -338,19 +455,28 @@ begin
     end if;
   end loop;
   return total;
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 
-create table public.streak_protections (
+create table if not exists public.streak_protections (
   user_id uuid not null references auth.users(id) on delete cascade,
   protected_on date not null,
   created_at timestamptz not null default now(),
   primary key(user_id,protected_on)
 );
 alter table public.streak_protections enable row level security;
-create policy protections_own on public.streak_protections for select to authenticated using(user_id=auth.uid());
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='streak_protections' and policyname='protections_own') then
+    create policy protections_own on public.streak_protections for select to authenticated using(user_id=auth.uid());
+  end if;
+end $policy$;
 revoke all on public.streak_protections from anon, authenticated;
 grant select on public.streak_protections to authenticated;
-create function public.activity_days_with_protection(p_uid uuid) returns table("day" date)
+do $bootstrap$
+begin
+  if to_regprocedure('public.activity_days_with_protection(uuid)') is null then
+    execute $definition$create function public.activity_days_with_protection(p_uid uuid) returns table("day" date)
 language sql stable security definer set search_path=public as $$
   select performed_at::date from public.habit_logs where user_id=p_uid
   union select performed_at::date from public.workout_sets where user_id=p_uid
@@ -363,18 +489,33 @@ language sql stable security definer set search_path=public as $$
   union select logged_on from public.wellbeing_logs where user_id=p_uid
   union select (done_at at time zone 'America/Bogota')::date from public.edu_tasks where user_id=p_uid and done
   union select protected_on from public.streak_protections where user_id=p_uid
-$$;
+$$;$definition$;
+  end if;
+end $bootstrap$;
 -- Agrega el protector a la racha existente; no otorga XP ni altera registros de hábitos.
-create or replace function public.compute_streak(p_uid uuid) returns int
+do $bootstrap$
+begin
+  if to_regprocedure('public.compute_streak(uuid)') is null or current_setting('liferpg.economy05_install',true)='true' then
+    execute $definition$create or replace function public.compute_streak(p_uid uuid) returns int
 language sql stable security definer set search_path=public as $$
   with numbered as (
     select "day","day"-(row_number() over(order by "day"))::int g from public.activity_days_with_protection(p_uid) where "day"<=public.app_today()
   ) select case when max("day")>=public.app_today()-1 then
     (select count(*)::int from numbered where g=(select g from numbered order by "day" desc limit 1)) else 0 end from numbered
-$$;
-create or replace function public.my_current_streak() returns integer
-language sql stable security definer set search_path=public as $$ select public.compute_streak(auth.uid()) $$;
-create function public.use_streak_guard() returns void
+$$;$definition$;
+  end if;
+end $bootstrap$;
+do $bootstrap$
+begin
+  if to_regprocedure('public.my_current_streak()') is null or current_setting('liferpg.economy05_install',true)='true' then
+    execute $definition$create or replace function public.my_current_streak() returns integer
+language sql stable security definer set search_path=public as $$ select public.compute_streak(auth.uid()) $$;$definition$;
+  end if;
+end $bootstrap$;
+do $bootstrap$
+begin
+  if to_regprocedure('public.use_streak_guard()') is null then
+    execute $definition$create function public.use_streak_guard() returns void
 language plpgsql security definer set search_path=public as $$
 begin
   if auth.uid() is null then raise exception 'Inicia sesión'; end if;
@@ -386,11 +527,16 @@ begin
   update public.utility_inventory set quantity=quantity-1 where user_id=auth.uid() and utility='streak_guard' and quantity>0;
   if not found then raise exception 'No tienes protectores de racha'; end if;
   insert into public.streak_protections(user_id,protected_on) values(auth.uid(),public.app_today()-1);
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 
 -- Solo los rasgos base gratuitos viven en avatar JSON; los cosméticos pagados se
 -- obtienen del inventario. Un valor antiguo se conserva si el usuario no lo cambia.
-create function public.validate_avatar_base() returns trigger
+do $bootstrap$
+begin
+  if to_regprocedure('public.validate_avatar_base()') is null then
+    execute $definition$create function public.validate_avatar_base() returns trigger
 language plpgsql set search_path=public as $$
 declare k text; v text; allowed text[];
 begin
@@ -411,9 +557,15 @@ begin
     if v is null or not v=any(allowed) then raise exception 'Rasgo base no válido: %',k; end if;
   end loop;
   return new;
-end $$;
-create trigger validate_avatar_base before insert or update of avatar on public.profiles
+end $$;$definition$;
+  end if;
+end $bootstrap$;
+do $trigger$ begin
+  if not exists(select 1 from pg_trigger where tgrelid='public.profiles'::regclass and tgname='validate_avatar_base' and not tgisinternal) then
+    create trigger validate_avatar_base before insert or update of avatar on public.profiles
   for each row execute function public.validate_avatar_base();
+  end if;
+end $trigger$;
 
 revoke all on function public.has_premium(uuid),public.record_coin_movement(),public.activity_days_with_protection(uuid),
   public.validate_avatar_base(),public.validate_username_write(),public.compute_streak(uuid) from public,anon,authenticated;

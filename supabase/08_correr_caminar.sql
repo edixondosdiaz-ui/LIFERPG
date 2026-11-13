@@ -1,6 +1,10 @@
 -- Manual después de 07_premium_ranking.sql. No ejecutado por Codex.
 begin;
-create table public.running_rules (
+-- Capturar antes de crear objetos: actualizar funciones previas solo al instalar esta fase.
+do $install_state$ begin
+  perform set_config('liferpg.install08', (to_regprocedure('public.active_run()') is null and to_regprocedure('public.start_run(text)') is null and to_regprocedure('public.running_overview()') is null)::text, true);
+end $install_state$;
+create table if not exists public.running_rules (
  id boolean primary key default true check(id), accuracy_m numeric not null default 30,
  walk_max_mps numeric not null default 3, run_max_mps numeric not null default 8,
  jump_m numeric not null default 200, gap_seconds integer not null default 120,
@@ -11,13 +15,17 @@ create table public.running_rules (
  check(accuracy_m>0 and walk_max_mps>0 and run_max_mps>0 and heartbeat_seconds between 10 and 60),
  check(gps_xp_per_km>=0 and manual_xp_per_km>=0 and daily_xp_cap>=0 and manual_daily_cap>=0)
 );
-insert into public.running_rules(id) values(true);
+insert into public.running_rules(id) values(true) on conflict(id) do nothing;
 alter table public.running_rules enable row level security;
-create policy running_rules_read on public.running_rules for select to authenticated using(true);
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='running_rules' and policyname='running_rules_read') then
+    create policy running_rules_read on public.running_rules for select to authenticated using(true);
+  end if;
+end $policy$;
 revoke all on public.running_rules from public,anon,authenticated;
 grant select on public.running_rules to authenticated;
 
-create table public.running_sessions (
+create table if not exists public.running_sessions (
  id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade,
  activity text not null check(activity in ('walk','run')), mode text not null check(mode in ('gps','manual')),
  status text not null check(status in ('running','paused','completed')),
@@ -30,9 +38,9 @@ create table public.running_sessions (
  xp_awarded integer not null default 0, suspicious boolean not null default false,
  completed_on date, finished_at timestamptz, route_deleted boolean not null default false
 );
-create unique index running_one_active on public.running_sessions(user_id) where status in ('running','paused');
-create index running_history on public.running_sessions(user_id,completed_on desc);
-create table public.running_points (
+create unique index if not exists running_one_active on public.running_sessions(user_id) where status in ('running','paused');
+create index if not exists running_history on public.running_sessions(user_id,completed_on desc);
+create table if not exists public.running_points (
  id bigint generated always as identity primary key,
  session_id uuid not null references public.running_sessions(id) on delete cascade,
  user_id uuid not null references auth.users(id) on delete cascade,
@@ -41,19 +49,35 @@ create table public.running_points (
  accuracy numeric not null check(accuracy between 0 and 30),
  recorded_at timestamptz not null, segment integer not null
 );
-create index running_route on public.running_points(session_id,id);
+create index if not exists running_route on public.running_points(session_id,id);
 alter table public.running_sessions enable row level security;
 alter table public.running_points enable row level security;
-create policy running_sessions_own on public.running_sessions for select to authenticated using(user_id=auth.uid());
-create policy running_points_own on public.running_points for select to authenticated using(user_id=auth.uid());
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='running_sessions' and policyname='running_sessions_own') then
+    create policy running_sessions_own on public.running_sessions for select to authenticated using(user_id=auth.uid());
+  end if;
+end $policy$;
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='running_points' and policyname='running_points_own') then
+    create policy running_points_own on public.running_points for select to authenticated using(user_id=auth.uid());
+  end if;
+end $policy$;
 revoke all on public.running_sessions,public.running_points from public,anon,authenticated;
 grant select on public.running_sessions,public.running_points to authenticated;
 
-create function public.running_distance(a double precision,b double precision,c double precision,d double precision) returns double precision
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.running_distance(double precision,double precision,double precision,double precision)') is null then
+    execute $definition$create function public.running_distance(a double precision,b double precision,c double precision,d double precision) returns double precision
 language sql immutable set search_path=public as $$
  select 6371000*2*asin(sqrt(least(1.0,power(sin(radians(c-a)/2),2)+cos(radians(a))*cos(radians(c))*power(sin(radians(d-b)/2),2))))
-$$;
-create function public.active_run() returns jsonb
+$$;$definition$;
+  end if;
+end $bootstrap$;
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.active_run()') is null then
+    execute $definition$create function public.active_run() returns jsonb
 language plpgsql security definer set search_path=public as $$
 declare s public.running_sessions;
 begin
@@ -66,8 +90,13 @@ begin
  end if;
  update public.running_sessions set writer_token=gen_random_uuid() where id=s.id returning * into s;
  return to_jsonb(s);
-end $$;
-create function public.start_run(p_activity text) returns jsonb
+end $$;$definition$;
+  end if;
+end $bootstrap$;
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.start_run(text)') is null then
+    execute $definition$create function public.start_run(p_activity text) returns jsonb
 language plpgsql security definer set search_path=public as $$
 declare s public.running_sessions;
 begin
@@ -77,8 +106,13 @@ begin
  if found then raise exception 'Ya tienes una actividad pendiente. Recupérala o descártala'; end if;
  insert into public.running_sessions(user_id,activity,mode,status) values(auth.uid(),p_activity,'gps','running') returning * into s;
  return to_jsonb(s);
-end $$;
-create function public.finish_run_internal(p_id uuid) returns jsonb
+end $$;$definition$;
+  end if;
+end $bootstrap$;
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.finish_run_internal(uuid)') is null then
+    execute $definition$create function public.finish_run_internal(p_id uuid) returns jsonb
 language plpgsql security definer set search_path=public as $$
 declare s public.running_sessions; r public.running_rules; earned int; total int; manual_total int;
 begin
@@ -98,9 +132,14 @@ begin
   last_lat=null,last_lng=null,last_point_at=null where id=s.id returning * into s;
  if earned>0 then perform public.award_xp('vitalidad',earned);end if;
  return to_jsonb(s);
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 
-create function public.save_run(p_id uuid,p_seq integer,p_points jsonb,p_action text default 'save',p_writer uuid default null) returns jsonb
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.save_run(uuid,integer,jsonb,text,uuid)') is null then
+    execute $definition$create function public.save_run(p_id uuid,p_seq integer,p_points jsonb,p_action text default 'save',p_writer uuid default null) returns jsonb
 language plpgsql security definer set search_path=public as $$
 declare s public.running_sessions; r public.running_rules; point jsonb; lat double precision; lng double precision; acc numeric; at_time timestamptz; delta double precision; dt double precision; seconds int;
 begin
@@ -145,8 +184,13 @@ begin
   last_lat=s.last_lat,last_lng=s.last_lng,last_point_at=s.last_point_at,accepted=s.accepted,rejected=s.rejected where id=s.id returning * into s;
  if p_action='finish' then return public.finish_run_internal(s.id);end if;
  return to_jsonb(s);
-end $$;
-create function public.log_manual_run(p_activity text,p_meters numeric,p_seconds integer,p_request_id uuid) returns jsonb
+end $$;$definition$;
+  end if;
+end $bootstrap$;
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.log_manual_run(text,numeric,integer,uuid)') is null then
+    execute $definition$create function public.log_manual_run(p_activity text,p_meters numeric,p_seconds integer,p_request_id uuid) returns jsonb
 language plpgsql security definer set search_path=public as $$
 declare s public.running_sessions;
 begin
@@ -157,22 +201,37 @@ begin
  if exists(select 1 from public.running_sessions where user_id=auth.uid() and status in ('running','paused')) then raise exception 'Finaliza o descarta primero la actividad GPS pendiente';end if;
  insert into public.running_sessions(id,user_id,activity,mode,status,meters,active_seconds) values(p_request_id,auth.uid(),p_activity,'manual','paused',p_meters,p_seconds) returning * into s;
  return public.finish_run_internal(s.id);
-end $$;
-create function public.delete_run_route(p_id uuid) returns void
+end $$;$definition$;
+  end if;
+end $bootstrap$;
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.delete_run_route(uuid)') is null then
+    execute $definition$create function public.delete_run_route(p_id uuid) returns void
 language plpgsql security definer set search_path=public as $$
 begin
  perform 1 from public.running_sessions where id=p_id and user_id=auth.uid() and status='completed' for update;
  if not found then raise exception 'Finaliza primero la actividad';end if;
  delete from public.running_points where session_id=p_id and user_id=auth.uid();
  update public.running_sessions set route_deleted=true,last_lat=null,last_lng=null,last_point_at=null where id=p_id;
-end $$;
-create function public.discard_run(p_id uuid) returns void
+end $$;$definition$;
+  end if;
+end $bootstrap$;
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.discard_run(uuid)') is null then
+    execute $definition$create function public.discard_run(p_id uuid) returns void
 language plpgsql security definer set search_path=public as $$
 begin
  delete from public.running_sessions where id=p_id and user_id=auth.uid() and status<>'completed';
  if not found then raise exception 'No hay borrador para descartar';end if;
-end $$;
-create function public.running_overview() returns jsonb
+end $$;$definition$;
+  end if;
+end $bootstrap$;
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.running_overview()') is null then
+    execute $definition$create function public.running_overview() returns jsonb
 language sql stable security definer set search_path=public as $$
  with sessions as (select * from public.running_sessions where user_id=auth.uid() and status='completed'),
  days as (select distinct completed_on d from sessions where completed_on<=public.app_today()),
@@ -182,9 +241,14 @@ language sql stable security definer set search_path=public as $$
  'longest_meters',(select coalesce(max(meters),0) from sessions),
  'best_pace',(select min(active_seconds/(meters/1000)) from sessions where meters>=100 and active_seconds>=60 and not suspicious),
  'streak',(select case when max(d)>=public.app_today()-1 then (select count(*) from numbered where g=(select g from numbered order by d desc limit 1)) else 0 end from numbered))
-$$;
+$$;$definition$;
+  end if;
+end $bootstrap$;
 
-create or replace function public.activity_days_with_protection(p_uid uuid) returns table("day" date)
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.activity_days_with_protection(uuid)') is null or current_setting('liferpg.install08',true)='true' then
+    execute $definition$create or replace function public.activity_days_with_protection(p_uid uuid) returns table("day" date)
 language sql stable security definer set search_path=public as $$
  select performed_at::date from public.habit_logs where user_id=p_uid
  union select performed_at::date from public.workout_sets where user_id=p_uid
@@ -198,8 +262,13 @@ language sql stable security definer set search_path=public as $$
  union select (done_at at time zone 'America/Bogota')::date from public.edu_tasks where user_id=p_uid and done
  union select protected_on from public.streak_protections where user_id=p_uid
  union select completed_on from public.running_sessions where user_id=p_uid and status='completed'
-$$;
-create or replace function public.my_activity() returns table("day" date,pillar text,entries bigint)
+$$;$definition$;
+  end if;
+end $bootstrap$;
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.my_activity()') is null or current_setting('liferpg.install08',true)='true' then
+    execute $definition$create or replace function public.my_activity() returns table("day" date,pillar text,entries bigint)
 language sql stable security definer set search_path=public as $$
  with activity as (
  select performed_at::date AS "day",pillar from public.habit_logs where user_id=auth.uid()
@@ -214,7 +283,9 @@ language sql stable security definer set search_path=public as $$
  union all select (done_at at time zone 'America/Bogota')::date,'intelecto' from public.edu_tasks where user_id=auth.uid() and done
  union all select completed_on,'vitalidad' from public.running_sessions where user_id=auth.uid() and status='completed')
  select "day",pillar,count(*) from activity where "day" between public.app_today()-89 and public.app_today() group by "day",pillar order by "day" desc
-$$;
+$$;$definition$;
+  end if;
+end $bootstrap$;
 revoke all on function public.running_distance(double precision,double precision,double precision,double precision),public.finish_run_internal(uuid) from public,anon,authenticated;
 revoke all on function public.active_run(),public.start_run(text),public.save_run(uuid,integer,jsonb,text,uuid),public.log_manual_run(text,numeric,integer,uuid),public.delete_run_route(uuid),public.discard_run(uuid),public.running_overview() from public,anon;
 grant execute on function public.active_run(),public.start_run(text),public.save_run(uuid,integer,jsonb,text,uuid),public.log_manual_run(text,numeric,integer,uuid),public.delete_run_route(uuid),public.discard_run(uuid),public.running_overview() to authenticated;

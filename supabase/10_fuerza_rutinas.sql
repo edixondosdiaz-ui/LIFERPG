@@ -1,6 +1,11 @@
 -- Aplicar completo manualmente después de las migraciones anteriores.
 -- No elimina ni actualiza registros existentes. Las funciones escriben solo al usarlas.
 begin;
+-- Importar asociaciones antiguas solo cuando se crean las tablas de esta fase.
+do $install_state$ begin
+  perform set_config('liferpg.import_routine_days', (to_regclass('public.routine_days') is null)::text,true);
+  perform set_config('liferpg.import_routine_exercises', (to_regclass('public.routine_exercises') is null)::text,true);
+end $install_state$;
 create table if not exists public.routine_days (
   routine_id uuid not null references public.routines(id) on delete cascade,
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
@@ -33,10 +38,12 @@ grant select,insert,update,delete on public.routine_days,public.routine_exercise
 insert into public.routine_days(routine_id,user_id,weekday)
   select distinct e.routine_id,e.user_id,e.weekday from public.exercises e
   join public.routines r on r.id=e.routine_id and r.user_id=e.user_id
+  where current_setting('liferpg.import_routine_days',true)='true'
   on conflict do nothing;
 insert into public.routine_exercises(routine_id,exercise_id,user_id)
   select e.routine_id,e.id,e.user_id from public.exercises e
   join public.routines r on r.id=e.routine_id and r.user_id=e.user_id
+  where current_setting('liferpg.import_routine_exercises',true)='true'
   on conflict do nothing;
 
 alter table public.workout_sets add column if not exists routine_id uuid references public.routines(id) on delete set null;

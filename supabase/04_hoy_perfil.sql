@@ -1,5 +1,7 @@
 -- Ejecutar manualmente DESPUÉS de las migraciones existentes, incluida 03_pilares.sql.
--- Solo agrega estructura y funciones. No migra, borra ni actualiza datos existentes.
+-- Reejecutable: solo crea objetos faltantes; no reemplaza funciones ni políticas existentes.
+-- Conserva las definiciones posteriores de 05, 07, 08 y 12.
+-- No borra ni actualiza registros existentes. Ejecutar completo, no por fragmentos.
 begin;
 create index if not exists workout_sets_user_created on public.workout_sets(user_id, created_at);
 
@@ -10,8 +12,12 @@ create table if not exists public.app_preferences (
   notifications boolean not null default false
 );
 alter table public.app_preferences enable row level security;
-create policy app_preferences_own on public.app_preferences for all to authenticated
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='app_preferences' and policyname='app_preferences_own') then
+    create policy app_preferences_own on public.app_preferences for all to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
+  end if;
+end $policy$;
 grant select, insert, update on public.app_preferences to authenticated;
 
 create table if not exists public.app_product_settings (
@@ -30,18 +36,30 @@ create table if not exists public.username_changes (
 );
 create index if not exists username_changes_user on public.username_changes(user_id);
 alter table public.username_changes enable row level security;
-create policy username_changes_own on public.username_changes for select to authenticated using (user_id = auth.uid());
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='username_changes' and policyname='username_changes_own') then
+    create policy username_changes_own on public.username_changes for select to authenticated using (user_id = auth.uid());
+  end if;
+end $policy$;
 revoke all on public.username_changes from anon, authenticated;
 grant select on public.username_changes to authenticated;
 
-create function public.my_name_changes() returns integer
+do $bootstrap$
+begin
+  if to_regprocedure('public.my_name_changes()') is null then
+    execute $definition$create function public.my_name_changes() returns integer
 language sql stable security definer set search_path = public as $$
   select greatest(0, (select free_name_changes from public.app_product_settings where id)
     - (select count(*)::int from public.username_changes where user_id = auth.uid()))
-$$;
+$$;$definition$;
+  end if;
+end $bootstrap$;
 
 -- Protege también los caminos anteriores de actualización de username.
-create function public.guard_username_change() returns trigger
+do $bootstrap$
+begin
+  if to_regprocedure('public.guard_username_change()') is null then
+    execute $definition$create function public.guard_username_change() returns trigger
 language plpgsql set search_path = public as $$
 begin
   if old.onboarding_completed and new.username is distinct from old.username
@@ -49,11 +67,20 @@ begin
     raise exception 'Usa la función de cambio de usuario';
   end if;
   return new;
-end $$;
-create trigger guard_username_change before update on public.profiles
-for each row execute function public.guard_username_change();
+end $$;$definition$;
+  end if;
+end $bootstrap$;
+do $trigger$ begin
+  if not exists(select 1 from pg_trigger where tgrelid='public.profiles'::regclass and tgname='guard_username_change' and not tgisinternal) then
+    create trigger guard_username_change before update on public.profiles
+      for each row execute function public.guard_username_change();
+  end if;
+end $trigger$;
 
-create function public.change_my_username(p_username text) returns void
+do $bootstrap$
+begin
+  if to_regprocedure('public.change_my_username(text)') is null then
+    execute $definition$create function public.change_my_username(p_username text) returns void
 language plpgsql security definer set search_path = public as $$
 declare u text := lower(trim(p_username)); old_name text;
 begin
@@ -68,7 +95,9 @@ begin
   update public.profiles set username = u where id = auth.uid();
   insert into public.username_changes(user_id) values (auth.uid());
 exception when unique_violation then raise exception 'Ese usuario ya está en uso';
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 
 create table if not exists public.wellbeing_logs (
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
@@ -79,8 +108,12 @@ create table if not exists public.wellbeing_logs (
   primary key(user_id, logged_on)
 );
 alter table public.wellbeing_logs enable row level security;
-create policy wellbeing_own on public.wellbeing_logs for all to authenticated
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='wellbeing_logs' and policyname='wellbeing_own') then
+    create policy wellbeing_own on public.wellbeing_logs for all to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
+  end if;
+end $policy$;
 grant select, insert, update on public.wellbeing_logs to authenticated;
 
 -- Estado de temporizadores: el cliente solo puede leer; el reloj y las transiciones son del servidor.
@@ -93,11 +126,18 @@ create table if not exists public.active_timers (
   primary key(user_id, kind)
 );
 alter table public.active_timers enable row level security;
-create policy active_timers_own on public.active_timers for select to authenticated using (user_id = auth.uid());
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='active_timers' and policyname='active_timers_own') then
+    create policy active_timers_own on public.active_timers for select to authenticated using (user_id = auth.uid());
+  end if;
+end $policy$;
 revoke all on public.active_timers from anon, authenticated;
 grant select on public.active_timers to authenticated;
 
-create function public.timer_action(p_kind text, p_action text, p_config jsonb default '{}'::jsonb) returns jsonb
+do $bootstrap$
+begin
+  if to_regprocedure('public.timer_action(text,text,jsonb)') is null then
+    execute $definition$create function public.timer_action(p_kind text, p_action text, p_config jsonb default '{}'::jsonb) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare t public.active_timers; seconds int; result jsonb := '{}'::jsonb; max_seconds int;
 begin
@@ -142,10 +182,15 @@ begin
     return result || jsonb_build_object('seconds',seconds);
   else raise exception 'Acción inválida'; end if;
   return to_jsonb(t);
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 
 -- Datos agregados propios, sin exponer información de otros usuarios.
-create function public.my_activity() returns table("day" date, pillar text, entries bigint)
+do $bootstrap$
+begin
+  if to_regprocedure('public.my_activity()') is null then
+    execute $definition$create function public.my_activity() returns table("day" date, pillar text, entries bigint)
 language sql stable security definer set search_path = public as $$
   with activity as (
     select performed_at::date AS "day", pillar from public.habit_logs where user_id = auth.uid()
@@ -160,9 +205,14 @@ language sql stable security definer set search_path = public as $$
     union all select (done_at at time zone 'America/Bogota')::date, 'intelecto' from public.edu_tasks where user_id = auth.uid() and done
   ) select "day", pillar, count(*) from activity where "day" between public.app_today()-89 and public.app_today()
     group by "day",pillar order by "day" desc
-$$;
+$$;$definition$;
+  end if;
+end $bootstrap$;
 
-create function public.my_current_streak() returns integer
+do $bootstrap$
+begin
+  if to_regprocedure('public.my_current_streak()') is null then
+    execute $definition$create function public.my_current_streak() returns integer
 language sql stable security definer set search_path = public as $$
   with days as (
     select performed_at::date d from public.habit_logs where user_id=auth.uid()
@@ -179,9 +229,14 @@ language sql stable security definer set search_path = public as $$
     select d, d-(row_number() over(order by d))::int g from days where d<=public.app_today()
   ) select case when max(d)>=public.app_today()-1 then
     (select count(*)::int from numbered where g=(select g from numbered order by d desc limit 1)) else 0 end from numbered
-$$;
+$$;$definition$;
+  end if;
+end $bootstrap$;
 
-create function public.my_profile_summary() returns jsonb
+do $bootstrap$
+begin
+  if to_regprocedure('public.my_profile_summary()') is null then
+    execute $definition$create function public.my_profile_summary() returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare me public.profiles; g int; f int;
 begin
@@ -192,11 +247,16 @@ begin
     select 1 from public.friendships r where r.status='accepted' and
       ((r.requester_id=me.id and r.addressee_id=p.id) or (r.addressee_id=me.id and r.requester_id=p.id)));
   return public.user_metrics(me.id) || jsonb_build_object('global_rank',g,'friends_rank',f,'name_changes',public.my_name_changes());
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 
 -- El perfil de amigos existente sigue siendo privado. Esta nueva función permite
 -- únicamente la misma respuesta segura para perfiles que opten por ser públicos.
-create function public.visible_profile(p_username text) returns jsonb
+do $bootstrap$
+begin
+  if to_regprocedure('public.visible_profile(text)') is null then
+    execute $definition$create function public.visible_profile(p_username text) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare p public.profiles;
 begin
@@ -213,24 +273,36 @@ begin
       'equipped',coalesce((select jsonb_agg(s.data) from public.inventory i join public.shop_items s on s.id=i.item_id where i.user_id=p.id and i.equipped),'[]'::jsonb));
   end if;
   return public.get_friend_profile(p_username);
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 
 -- Crea la meta inicial solo para quien todavía no tiene ajustes. Conserva las existentes.
-create function public.log_water_quick(p_ml integer) returns jsonb
+do $bootstrap$
+begin
+  if to_regprocedure('public.log_water_quick(integer)') is null then
+    execute $definition$create function public.log_water_quick(p_ml integer) returns jsonb
 language plpgsql security definer set search_path = public as $$
 begin
   if auth.uid() is null then raise exception 'Sesión no válida'; end if;
   insert into public.pillar_settings(user_id, water_goal_ml) values(auth.uid(),2000) on conflict do nothing;
   return public.log_water(p_ml);
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 
 -- Esta función NO se ejecuta al aplicar el archivo. Solo al confirmar desde Configuración.
-create function public.delete_my_account(p_confirmation text) returns void
+do $bootstrap$
+begin
+  if to_regprocedure('public.delete_my_account(text)') is null then
+    execute $definition$create function public.delete_my_account(p_confirmation text) returns void
 language plpgsql security definer set search_path = public as $$
 begin
   if auth.uid() is null or p_confirmation is distinct from 'ELIMINAR' then raise exception 'Confirmación inválida'; end if;
   delete from auth.users where id = auth.uid();
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 
 revoke all on function public.my_name_changes(), public.change_my_username(text), public.timer_action(text,text,jsonb),
   public.my_activity(), public.my_current_streak(), public.my_profile_summary(), public.visible_profile(text), public.delete_my_account(text), public.log_water_quick(integer) from public, anon;

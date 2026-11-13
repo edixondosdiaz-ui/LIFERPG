@@ -1,26 +1,33 @@
 -- Ejecutar manualmente después de 05_economia_avatar.sql. No activa cuentas al aplicarlo.
 begin;
-create table public.premium_trial_settings (
+create table if not exists public.premium_trial_settings (
   id boolean primary key default true check(id),
   enabled boolean not null default true,
   duration_days integer not null default 7 check(duration_days between 1 and 30)
 );
-insert into public.premium_trial_settings(id) values(true);
+insert into public.premium_trial_settings(id) values(true) on conflict(id) do nothing;
 alter table public.premium_trial_settings enable row level security;
 revoke all on public.premium_trial_settings from public,anon,authenticated;
 
-create table public.premium_trials (
+create table if not exists public.premium_trials (
   user_id uuid primary key references auth.users(id) on delete cascade,
   started_at timestamptz not null,
   ends_at timestamptz not null,
   check(ends_at>started_at)
 );
 alter table public.premium_trials enable row level security;
-create policy premium_trials_own on public.premium_trials for select to authenticated using(user_id=auth.uid());
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='premium_trials' and policyname='premium_trials_own') then
+    create policy premium_trials_own on public.premium_trials for select to authenticated using(user_id=auth.uid());
+  end if;
+end $policy$;
 revoke all on public.premium_trials from public,anon,authenticated;
 grant select on public.premium_trials to authenticated;
 
-create function public.my_premium_status() returns jsonb
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.my_premium_status()') is null then
+    execute $definition$create function public.my_premium_status() returns jsonb
 language plpgsql stable security definer set search_path=public as $$
 declare t public.premium_trials; e public.premium_entitlements; s public.premium_trial_settings;
 begin
@@ -34,9 +41,14 @@ begin
     'duration_days',s.duration_days,'server_now',now(),
     'discount',(select premium_discount from public.economy_rules where id),
     'rename_days',(select premium_rename_days from public.economy_rules where id));
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 
-create function public.activate_premium_trial() returns jsonb
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.activate_premium_trial()') is null then
+    execute $definition$create function public.activate_premium_trial() returns jsonb
 language plpgsql security definer set search_path=public as $$
 declare s public.premium_trial_settings; e public.premium_entitlements; finish timestamptz;
 begin
@@ -54,7 +66,9 @@ begin
   insert into public.premium_entitlements(user_id,starts_at,ends_at) values(auth.uid(),now(),finish)
     on conflict(user_id) do update set starts_at=excluded.starts_at,ends_at=excluded.ends_at;
   return public.my_premium_status();
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 revoke all on function public.my_premium_status(),public.activate_premium_trial() from public,anon;
 grant execute on function public.my_premium_status(),public.activate_premium_trial() to authenticated;
 notify pgrst,'reload schema';

@@ -11,8 +11,14 @@ supabase.sip
 supabase
 !supabase/
 supabase/*
+!supabase/04_hoy_perfil.sql
+!supabase/05_economia_avatar.sql
 !supabase/09_hoy_racha_habitos.sql
 !supabase/10_fuerza_rutinas.sql
 !supabase/11_salud_orden.sql
 !supabase/12_perfiles_publicos_ranking.sql
 !supabase/13_estudio_calendario.sql
+
+!supabase/06_prueba_premium.sql
+!supabase/07_premium_ranking.sql
+!supabase/08_correr_caminar.sql

@@ -1,6 +1,10 @@
 -- Manual, después de 06_prueba_premium.sql. No ejecutado por Codex.
 begin;
-create table public.feature_rules (
+-- Capturar antes de crear objetos: actualizar funciones previas solo al instalar esta fase.
+do $install_state$ begin
+  perform set_config('liferpg.install07', (to_regprocedure('public.sync_premium_benefits()') is null and to_regprocedure('public.routine_quota()') is null and to_regprocedure('public.settle_leagues()') is null)::text, true);
+end $install_state$;
+create table if not exists public.feature_rules (
   id boolean primary key default true check(id),
   free_routines integer not null default 3 check(free_routines>=1),
   trend_months integer not null default 12 check(trend_months between 3 and 36),
@@ -8,9 +12,13 @@ create table public.feature_rules (
   league_percent integer not null default 20 check(league_percent between 1 and 40),
   tracking_started_at timestamptz not null default now()
 );
-insert into public.feature_rules(id) values(true);
+insert into public.feature_rules(id) values(true) on conflict(id) do nothing;
 alter table public.feature_rules enable row level security;
-create policy feature_rules_read on public.feature_rules for select to authenticated using(true);
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='feature_rules' and policyname='feature_rules_read') then
+    create policy feature_rules_read on public.feature_rules for select to authenticated using(true);
+  end if;
+end $policy$;
 revoke all on public.feature_rules from public,anon,authenticated;
 grant select on public.feature_rules to authenticated;
 
@@ -18,15 +26,23 @@ insert into public.shop_items(id,category,kind,name,description,rarity,price_coi
  ('premium_frame','premium','marco','Marco Premium','Incluido mientras Premium esté vigente.','epic',0,true,'{"slot":"frame","style":"solid","color":"#a855f7","color2":"#f8fafc"}','frames',200),
  ('premium_badge','premium','insignia','Insignia Premium','Incluida mientras Premium esté vigente.','epic',0,true,'{"slot":"badge","icon":"✦"}','avatar',201)
 on conflict(id) do nothing;
-create function public.sync_premium_benefits() returns void
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.sync_premium_benefits()') is null then
+    execute $definition$create function public.sync_premium_benefits() returns void
 language plpgsql security definer set search_path=public as $$
 begin
   if auth.uid() is null then raise exception 'Inicia sesión'; end if;
   if public.has_premium(auth.uid()) then
     insert into public.inventory(user_id,item_id) values(auth.uid(),'premium_frame'),(auth.uid(),'premium_badge') on conflict do nothing;
   end if;
-end $$;
-create or replace function public.my_premium_status() returns jsonb
+end $$;$definition$;
+  end if;
+end $bootstrap$;
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.my_premium_status()') is null or current_setting('liferpg.install07',true)='true' then
+    execute $definition$create or replace function public.my_premium_status() returns jsonb
 language plpgsql stable security definer set search_path=public as $$
 declare t public.premium_trials; e public.premium_entitlements; s public.premium_trial_settings;
 begin
@@ -42,44 +58,86 @@ begin
     'rename_days',(select premium_rename_days from public.economy_rules where id),
     'free_routines',(select free_routines from public.feature_rules where id),
     'trend_months',(select trend_months from public.feature_rules where id));
-end $$;
-create function public.guard_premium_equipment() returns trigger
+end $$;$definition$;
+  end if;
+end $bootstrap$;
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.guard_premium_equipment()') is null then
+    execute $definition$create function public.guard_premium_equipment() returns trigger
 language plpgsql set search_path=public as $$
 begin
   if new.equipped and new.item_id in ('premium_frame','premium_badge') and not public.has_premium(new.user_id) then raise exception 'Este objeto requiere Premium vigente'; end if;
   return new;
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 -- Necesita permisos del dueño para consultar has_premium; nunca expone la función interna.
 alter function public.guard_premium_equipment() security definer;
-create trigger guard_premium_equipment before insert or update of equipped on public.inventory for each row execute function public.guard_premium_equipment();
-create or replace function public.my_equipped() returns jsonb
+do $trigger$ begin
+  if not exists(select 1 from pg_trigger where tgname='guard_premium_equipment' and tgrelid='public.inventory'::regclass and not tgisinternal) then
+    create trigger guard_premium_equipment before insert or update of equipped on public.inventory for each row execute function public.guard_premium_equipment();
+  end if;
+end $trigger$;
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.my_equipped()') is null or current_setting('liferpg.install07',true)='true' then
+    execute $definition$create or replace function public.my_equipped() returns jsonb
 language sql stable security definer set search_path=public as $$
   select coalesce(jsonb_agg(s.data),'[]'::jsonb) from public.inventory i join public.shop_items s on s.id=i.item_id
   where i.user_id=auth.uid() and i.equipped and (s.id not in ('premium_frame','premium_badge') or public.has_premium(auth.uid()))
-$$;
+$$;$definition$;
+  end if;
+end $bootstrap$;
 
-create function public.routine_quota() returns jsonb
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.routine_quota()') is null then
+    execute $definition$create function public.routine_quota() returns jsonb
 language sql stable security definer set search_path=public as $$
   select jsonb_build_object('count',(select count(*) from public.routines where user_id=auth.uid()),
     'limit',case when public.has_premium(auth.uid()) then null else (select free_routines from public.feature_rules where id) end)
-$$;
-create function public.guard_routine_quota() returns trigger
+$$;$definition$;
+  end if;
+end $bootstrap$;
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.guard_routine_quota()') is null then
+    execute $definition$create function public.guard_routine_quota() returns trigger
 language plpgsql security definer set search_path=public as $$
 begin
   perform 1 from public.profiles where id=new.user_id for update;
   if not public.has_premium(new.user_id) and (select count(*) from public.routines where user_id=new.user_id)>=(select free_routines from public.feature_rules where id) then raise exception 'Alcanzaste el límite de rutinas Gratis. Premium permite rutinas ilimitadas'; end if;
   return new;
-end $$;
-create trigger guard_routine_quota before insert on public.routines for each row execute function public.guard_routine_quota();
-create function public.guard_exercise_routine() returns trigger
+end $$;$definition$;
+  end if;
+end $bootstrap$;
+do $trigger$ begin
+  if not exists(select 1 from pg_trigger where tgname='guard_routine_quota' and tgrelid='public.routines'::regclass and not tgisinternal) then
+    create trigger guard_routine_quota before insert on public.routines for each row execute function public.guard_routine_quota();
+  end if;
+end $trigger$;
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.guard_exercise_routine()') is null then
+    execute $definition$create function public.guard_exercise_routine() returns trigger
 language plpgsql security definer set search_path=public as $$
 begin
   if new.routine_id is not null and not exists(select 1 from public.routines where id=new.routine_id and user_id=new.user_id) then raise exception 'La rutina no te pertenece'; end if;
   return new;
-end $$;
-create trigger guard_exercise_routine before insert or update of routine_id,user_id on public.exercises for each row execute function public.guard_exercise_routine();
+end $$;$definition$;
+  end if;
+end $bootstrap$;
+do $trigger$ begin
+  if not exists(select 1 from pg_trigger where tgname='guard_exercise_routine' and tgrelid='public.exercises'::regclass and not tgisinternal) then
+    create trigger guard_exercise_routine before insert or update of routine_id,user_id on public.exercises for each row execute function public.guard_exercise_routine();
+  end if;
+end $trigger$;
 
-create function public.premium_trends() returns jsonb
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.premium_trends()') is null then
+    execute $definition$create function public.premium_trends() returns jsonb
 language plpgsql stable security definer set search_path=public as $$
 declare result jsonb;
 begin
@@ -92,34 +150,49 @@ begin
     'savings',coalesce((select sum(amount) from public.fin_transactions where user_id=auth.uid() and kind='ahorro' and occurred_on>=m::date and occurred_on<(m+interval '1 month')::date),0)) order by m)
     into result from generate_series(date_trunc('month',public.app_today()::timestamp)-make_interval(months=>(select trend_months-1 from public.feature_rules where id)),date_trunc('month',public.app_today()::timestamp),interval '1 month') m;
   return result;
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 
-create table public.weekly_xp (
+create table if not exists public.weekly_xp (
   user_id uuid not null references auth.users(id) on delete cascade,
   week_start date not null,
   xp integer not null check(xp>=0),
   primary key(user_id,week_start)
 );
-create index weekly_xp_week on public.weekly_xp(week_start,xp desc);
+create index if not exists weekly_xp_week on public.weekly_xp(week_start,xp desc);
 alter table public.weekly_xp enable row level security;
-create policy weekly_xp_own on public.weekly_xp for select to authenticated using(user_id=auth.uid());
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='weekly_xp' and policyname='weekly_xp_own') then
+    create policy weekly_xp_own on public.weekly_xp for select to authenticated using(user_id=auth.uid());
+  end if;
+end $policy$;
 revoke all on public.weekly_xp from public,anon,authenticated;
 grant select on public.weekly_xp to authenticated;
-create function public.track_weekly_xp() returns trigger
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.track_weekly_xp()') is null then
+    execute $definition$create function public.track_weekly_xp() returns trigger
 language plpgsql security definer set search_path=public as $$
 begin
   if new.xp>old.xp then insert into public.weekly_xp(user_id,week_start,xp)
     values(new.id,date_trunc('week',public.app_today()::timestamp)::date,new.xp-old.xp)
     on conflict(user_id,week_start) do update set xp=public.weekly_xp.xp+excluded.xp; end if;
   return new;
-end $$;
-create trigger track_weekly_xp after update of xp on public.profiles for each row execute function public.track_weekly_xp();
-create table public.league_members (
+end $$;$definition$;
+  end if;
+end $bootstrap$;
+do $trigger$ begin
+  if not exists(select 1 from pg_trigger where tgname='track_weekly_xp' and tgrelid='public.profiles'::regclass and not tgisinternal) then
+    create trigger track_weekly_xp after update of xp on public.profiles for each row execute function public.track_weekly_xp();
+  end if;
+end $trigger$;
+create table if not exists public.league_members (
   user_id uuid primary key references auth.users(id) on delete cascade,
   tier integer not null default 0 check(tier between 0 and 5),
   week_start date not null default date_trunc('week',public.app_today()::timestamp)::date
 );
-create table public.league_history (
+create table if not exists public.league_history (
   user_id uuid not null references auth.users(id) on delete cascade,
   week_start date not null,
   old_tier integer not null,
@@ -130,11 +203,22 @@ create table public.league_history (
 );
 alter table public.league_members enable row level security;
 alter table public.league_history enable row level security;
-create policy league_members_own on public.league_members for select to authenticated using(user_id=auth.uid());
-create policy league_history_own on public.league_history for select to authenticated using(user_id=auth.uid());
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='league_members' and policyname='league_members_own') then
+    create policy league_members_own on public.league_members for select to authenticated using(user_id=auth.uid());
+  end if;
+end $policy$;
+do $policy$ begin
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='league_history' and policyname='league_history_own') then
+    create policy league_history_own on public.league_history for select to authenticated using(user_id=auth.uid());
+  end if;
+end $policy$;
 revoke all on public.league_members,public.league_history from public,anon,authenticated;
 grant select on public.league_members,public.league_history to authenticated;
-create function public.settle_leagues() returns void
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.settle_leagues()') is null then
+    execute $definition$create function public.settle_leagues() returns void
 language plpgsql security definer set search_path=public as $$
 declare w date; current_week date:=date_trunc('week',public.app_today()::timestamp)::date; rec record; target int; quota int; rules public.feature_rules; paid int;
 begin
@@ -164,9 +248,14 @@ begin
       update public.league_members set tier=target,week_start=w+7 where user_id=rec.user_id;
     end loop;
   end loop;
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 
-create function public.ranking_rows(p_scope text default 'global') returns jsonb
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.ranking_rows(text)') is null then
+    execute $definition$create function public.ranking_rows(p_scope text default 'global') returns jsonb
 language plpgsql security definer set search_path=public as $$
 declare result jsonb; my_tier int;
 begin
@@ -193,9 +282,14 @@ begin
     'league_min_members',(select league_min_members from public.feature_rules where id),
     'league_percent',(select league_percent from public.feature_rules where id)) into result;
   return result;
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 
-create function public.ranking_user_summary(p_username text,p_scope text default 'global') returns jsonb
+-- Conservar implementaciones existentes, incluidas las de fases posteriores.
+do $bootstrap$ begin
+  if to_regprocedure('public.ranking_user_summary(text,text)') is null then
+    execute $definition$create function public.ranking_user_summary(p_username text,p_scope text default 'global') returns jsonb
 language plpgsql security definer set search_path=public as $$
 declare p public.profiles; f public.friendships; allowed boolean; result jsonb; metrics jsonb; league int; position int;
 begin
@@ -224,7 +318,9 @@ begin
     'achievements',coalesce((select jsonb_agg(to_jsonb(a)) from (select a.id,a.name,a.description,a.icon,a.target,a.reward_coins,
       least(coalesce((metrics->>a.metric)::int,0),a.target) progress,exists(select 1 from public.user_achievements where user_id=p.id and achievement_id=a.id) unlocked
       from public.achievements a order by unlocked desc,coalesce((metrics->>a.metric)::numeric,0)/a.target desc,a.sort limit 3) a),'[]'::jsonb));
-end $$;
+end $$;$definition$;
+  end if;
+end $bootstrap$;
 
 revoke all on function public.guard_premium_equipment(),public.guard_routine_quota(),public.guard_exercise_routine(),public.track_weekly_xp(),public.settle_leagues() from public,anon,authenticated;
 revoke all on function public.sync_premium_benefits(),public.routine_quota(),public.premium_trends(),public.ranking_rows(text),public.ranking_user_summary(text,text) from public,anon;
