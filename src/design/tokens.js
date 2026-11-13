@@ -10,6 +10,7 @@ export const tokens = {
     strength: '#ffaaa8', health: '#76e4b0', education: '#8cdbff', finance: '#f5ce75',
     hydration: '#8cdbff', sleep: '#b9b5ff', nutrition: '#ffc195', protein: '#ffb2c1', carbs: '#f5ce75', fat: '#9fc6ff',
     fire: { light: '#ffd18a', warm: '#ff975c', ink: '#32180d', idle: '#716a8f' },
+    study: { 0: '#17182d', 1: '#322144', 2: '#4c2b68', 3: '#653b86', 4: '#7c449f' },
     grid: 'rgba(224,212,255,.10)', track: 'rgba(224,212,255,.12)', clear: 'transparent',
     soft: 'rgba(224,212,255,.05)', subtle: 'rgba(224,212,255,.03)',
     achievement: { idle: 'rgba(224,212,255,.02)', done: 'rgba(245,206,117,.16)', progress: 'rgba(168,85,247,.20)' },

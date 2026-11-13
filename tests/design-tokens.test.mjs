@@ -31,3 +31,7 @@ test('las fechas de la racha mantienen contraste AA',()=>{
   for(const bg of [palette.fire.light,palette.fire.warm])assert.ok(contrast(palette.fire.ink,bg)>=4.5)
   assert.ok(contrast(palette.text.secondary,palette.surface.raised)>=4.5)
 })
+test('fechas del calendario de estudio mantienen contraste AA en cinco intensidades',()=>{
+  for(const bg of Object.values(palette.study))assert.ok(contrast(palette.text.primary,bg)>=4.5)
+  assert.ok(contrast(palette.text.secondary,palette.study[0])>=4.5)
+})

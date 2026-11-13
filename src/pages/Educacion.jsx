@@ -1,3 +1,4 @@
+import StudyCalendar from '../components/StudyCalendar'
 import AchievementCard from '../components/AchievementCard'
 import { palette } from '../design/tokens'
 import StudyFocus from '../components/StudyFocus'
@@ -5,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import * as api from '../services/api'
 import * as px from '../services/pillars'
-import { BarChart, Heatmap, HBars, Meter, Ring } from '../components/charts'
+import { BarChart, HBars, Meter, Ring } from '../components/charts'
 import { Card, Chip, Empty, GoalEditor, PillarHeader, Stat, Tabs, Toast, confirmDelete, useToast, xpText } from '../components/ui'
 import { addDays, daysBetween, fmtDay, fmtHours, lastDays, streakOf, sum, today as todayStr, weekStart, weekdayLetter } from '../lib/dates'
 import { levelProgress } from '../lib/xp'
@@ -113,12 +114,6 @@ function Progress({ sessions, tasks, settings, saveSettings, reload, notify }) {
 
   const subjects = Object.entries(sessions.reduce((a, s) => ({ ...a, [s.category]: (a[s.category] || 0) + s.minutes }), {})).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([label, value]) => ({ label, value }))
 
-  const start = addDays(ws, -63)
-  const cal = Array.from({ length: 70 }, (_, i) => {
-    const date = addDays(start, i), m = byDay.get(date) || 0
-    return { date, hidden: date > t, today: date === t, label: m ? fmtHours(m) : 'sin estudio', level: m === 0 ? 0 : m < 30 ? 1 : m < 60 ? 2 : m < 120 ? 3 : 4 }
-  })
-
   async function remove(id) { if (confirmDelete('¿Borrar esta sesión?')) { try { await px.deleteStudy(id); reload() } catch (e) { notify(e.message, 'err') } } }
   const tasksDone = tasks.filter((x) => x.done).length
 
@@ -152,8 +147,7 @@ function Progress({ sessions, tasks, settings, saveSettings, reload, notify }) {
         <BarChart colors={[SKY]} data={bars} format={(v) => `${v} h`} empty="Guarda una sesión para ver tus horas." />
       </Card>
 
-      <Card title="Calendario de actividad"><Heatmap days={cal} color={SKY} />
-        <p className="text-[11px] text-sub">Últimas 10 semanas · más color = más minutos de estudio.</p></Card>
+      <StudyCalendar revision={sessions}/>
 
       <Card title="Materias más trabajadas"><HBars items={subjects} color={SKY} format={fmtHours} empty="Aún no hay materias registradas." /></Card>
 

@@ -11,6 +11,7 @@ export default {
         strength: c.strength, health: c.health, education: c.education, finance: c.finance,
         hydration: c.hydration, sleep: c.sleep, nutrition: c.nutrition,
         fire: c.fire,
+        study: c.study,
       },
       fontFamily: { sans: tokens.fonts.body, display: tokens.fonts.display },
       backgroundImage: tokens.backgrounds,
