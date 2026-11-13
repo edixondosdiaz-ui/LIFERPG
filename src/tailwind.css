@@ -22,6 +22,11 @@
 
 /* Piezas reutilizables para que todas las pantallas se vean iguales */
 @layer components {
+  .pillar-page :is(input:not([type=range]):not([type=checkbox]):not([type=radio]), select, textarea) { font-size: 16px !important; min-height: 44px; max-width: 100%; }
+  .pillar-page label, .pillar-page form :is(p, span).text-\[10px\], .pillar-page form :is(p, span).text-\[11px\] { font-size: 12px; }
+  .finance-page .surface { padding: 14px; }
+  .finance-page .surface :is(input, select, textarea) { padding: 10px 12px; }
+  .finance-page .surface :is(p, span).text-\[10px\], .finance-page .surface :is(p, span).text-\[11px\] { font-size: 12px; }
   .surface { @apply rounded-card border border-stroke-glass bg-panel bg-surface shadow-card; }
   .field { @apply w-full min-w-0 rounded-button border border-line bg-card2 px-4 py-3 text-sm text-ink outline-none transition placeholder:text-sub focus:border-pu-light focus:ring-2 focus:ring-pu/30; }
   .btn { @apply inline-flex min-h-[44px] items-center justify-center rounded-button bg-gradient-to-b from-pu-dark to-pu-pressed px-4 py-3 text-sm font-bold text-white shadow-button transition duration-ui hover:brightness-110 active:scale-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pu-light focus-visible:ring-offset-2 focus-visible:ring-offset-app disabled:opacity-60 disabled:shadow-none; }

@@ -1,3 +1,4 @@
+import COPInput from '../components/COPInput'
 import { palette } from '../design/tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
@@ -58,7 +59,7 @@ function Summary({ tx, goals, goSection }) {
     <div className="space-y-4">
       <section className="relative overflow-hidden rounded-3xl border border-warning/30 bg-gradient-to-br from-warning/20 via-card to-card p-5">
         <p className="relative text-[11px] font-bold text-sub">Dinero disponible</p>
-        <p className={`relative mt-1 text-4xl font-black tracking-tight ${available < 0 ? 'text-error' : ''}`}>{money(available)}</p>
+        <p className={`relative mt-1 text-xl font-black tracking-tight ${available < 0 ? 'text-error' : ''}`}>{money(available)}</p>
         <div className="relative mt-3 flex items-center justify-between rounded-2xl bg-white/5 px-3.5 py-2.5 text-xs">
           <span className="text-sub">🐷 Ahorro acumulado</span><b style={{ color: SAVING }}>{money(all.save)}</b>
         </div>
@@ -144,7 +145,7 @@ function Movements({ tx, goals, recurring, reload, notify, historyOnly = false }
 
   return (
     <div className="space-y-4">
-      {!historyOnly && <div id="movimiento" className="scroll-mt-24"><Card title="Nuevo movimiento">
+      {!historyOnly && <div id="movimiento" className="scroll-mt-4"><Card title="Nuevo movimiento">
         <form id="finance-movement" onSubmit={submit} className="space-y-3">
           <div className="grid grid-cols-3 gap-1.5">
             {Object.entries(KINDS).map(([k, v]) => (
@@ -153,7 +154,7 @@ function Movements({ tx, goals, recurring, reload, notify, historyOnly = false }
                 style={kind === k ? { background: v.color + '26', borderColor: v.color, color: v.color } : { background: palette.soft, borderColor: palette.grid, color: palette.text.secondary }}>{v.label}</button>
             ))}
           </div>
-          <input className="field !py-5 !text-3xl font-bold" type="number" inputMode="decimal" min="1" step="any" required placeholder="Monto en COP" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <COPInput label="Monto en COP" required value={amount} onChange={setAmount}/>
 
           {kind === 'ahorro' ? (
             <div>
@@ -170,7 +171,7 @@ function Movements({ tx, goals, recurring, reload, notify, historyOnly = false }
             </div>
           )}
 
-          <div className="grid grid-cols-[1.5fr_1fr] gap-2">
+          <div className="grid grid-cols-1 gap-2">
             <input className="field" maxLength={120} placeholder={kind === 'ingreso' ? 'Fuente (ej: Empresa XYZ)' : 'Descripción (opcional)'} value={desc} onChange={(e) => setDesc(e.target.value)} />
             <input className="field !px-3" type="date" max={t} required value={date} onChange={(e) => setDate(e.target.value)} aria-label="Fecha" />
           </div>
@@ -269,7 +270,7 @@ function Goals({ tx, goals, reload, notify }) {
           <div className="flex flex-wrap gap-1.5">{GOAL_ICONS.map((i) => <button key={i} type="button" onClick={() => setIcon(i)} aria-pressed={icon === i} className={`h-10 w-10 rounded-xl border text-xl transition active:scale-press ${icon === i ? 'border-warning bg-warning/20' : 'border-white/10 bg-white/5'}`}>{i}</button>)}</div>
           <input className="field" placeholder="Ej: Laptop nueva, Fondo de emergencia, Viaje" required maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
           <div className="grid grid-cols-2 gap-2">
-            <input className="field" type="number" inputMode="decimal" min="1" step="any" required placeholder="Monto objetivo" value={target} onChange={(e) => setTarget(e.target.value)} />
+            <COPInput label="Monto objetivo (COP)" required value={target} onChange={setTarget}/>
             <input className="field !px-3" type="date" min={t} value={deadline} onChange={(e) => setDeadline(e.target.value)} aria-label="Fecha límite (opcional)" />
           </div>
           <button className="btn w-full" disabled={!name.trim() || !Number(target)}>Crear meta</button>
@@ -300,7 +301,7 @@ function Goals({ tx, goals, reload, notify }) {
             </div>
             {!done && (
               <form onSubmit={(e) => { e.preventDefault(); contribute(g) }} className="flex gap-2">
-                <input className="field !py-2.5" type="number" inputMode="decimal" min="1" step="any" placeholder="Abonar (COP)" value={deposit[g.id] ?? ''} onChange={(e) => setDeposit({ ...deposit, [g.id]: e.target.value })} />
+                <COPInput label="Abonar (COP)" value={deposit[g.id] ?? ''} onChange={value=>setDeposit({...deposit,[g.id]:value})}/>
                 <button className="btn flex-none !py-2.5" disabled={!Number(deposit[g.id])}>Abonar</button>
               </form>
             )}
@@ -340,10 +341,10 @@ export default function Finanzas() {
   }, [reload, notify, refreshProfile])
 
   return (
-    <div className="space-y-5">
+    <div className="finance-page space-y-4">
       <PillarHeader pillar="finanzas" title="Finanzas" kicker="Ingresos, gastos y ahorro" color={GOLD} icon="💰" />
       {!ready ? <p className="py-8 text-center text-sm text-sub">Cargando…</p> : <>
-        <section className="surface sticky top-20 z-10 space-y-3 !bg-card p-4"><div className="grid grid-cols-2 gap-3"><Stat label="Balance del mes" value={money(flow(between(tx,monthStart(),todayStr())).in-flow(between(tx,monthStart(),todayStr())).out)} /><Stat label="Ahorro del mes" value={money(flow(between(tx,monthStart(),todayStr())).save)} color={SAVING} /></div><button type="submit" form="finance-movement" className="btn w-full">Registrar movimiento</button></section>
+        <section className="surface space-y-3 !bg-card p-4"><div><p className="text-[12px] font-semibold text-sub">Balance del mes</p><p className="break-words font-display text-[28px] font-extrabold tabular-nums">{money(flow(between(tx,monthStart(),todayStr())).in-flow(between(tx,monthStart(),todayStr())).out)}</p></div><p className="flex flex-wrap justify-between gap-2 text-[12px] text-sub">Ahorro del mes <strong className="text-[16px] text-finance">{money(flow(between(tx,monthStart(),todayStr())).save)}</strong></p><button type="submit" form="finance-movement" className="btn w-full">Registrar movimiento</button></section>
         <Movements tx={tx} goals={goals} recurring={recurring} reload={reload} notify={notify} />
         <div id="metas" className="scroll-mt-24"><Goals tx={tx} goals={goals} reload={reload} notify={notify} /></div>
         <Summary tx={tx} goals={goals} goSection={() => document.getElementById('metas')?.scrollIntoView({behavior:'smooth'})} />

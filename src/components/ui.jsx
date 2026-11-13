@@ -61,7 +61,7 @@ export function Toast({ msg }) {
   const cls = msg.type === 'pr' ? 'border-pu/40 bg-gradient-to-r from-pu/25 to-pu-dark/10 text-pu-light'
     : msg.type === 'err' ? 'border-error/30 bg-error/10 text-error' : 'border-pu/30 bg-pu/10 text-pu-light'
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 mx-auto flex max-w-md justify-center px-4" role="status" aria-live="polite">
+    <div className="mx-auto flex max-w-md justify-center" role="status" aria-live="polite">
       <p key={msg.n} className={`animate-pop rounded-2xl border px-4 py-2.5 text-center text-sm font-bold shadow-nav ${cls}`}>{msg.text}</p>
     </div>
   )

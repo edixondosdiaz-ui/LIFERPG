@@ -317,7 +317,7 @@ export default function Strength() {
     <div className="space-y-5">
       <PillarHeader pillar="fuerza" title="Fuerza" kicker="Entrenamiento" color={RED} icon="⚔️" />
 
-      <Card className="sticky top-20 z-10 !bg-card" title="Entrenamiento de hoy"
+      <Card className="!bg-card" title="Entrenamiento de hoy"
         right={start ? <span className="rounded-full bg-error/15 px-2.5 py-1 text-[10px] font-extrabold text-error">● En curso</span> : null}>
         {start ? (
           <div className="flex items-center justify-between gap-3">

@@ -33,7 +33,7 @@ export default function Layout() {
   }, [])
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-transparent text-ink">
-      <header className={`sticky top-0 z-40 flex shrink-0 items-center justify-between gap-2 border-b border-stroke-glass px-4 backdrop-blur-glass ${isToday ? 'h-header bg-header' : 'h-20 bg-app/95'}`}>
+      <header className={`relative z-40 flex shrink-0 items-center justify-between gap-2 border-b border-stroke-glass px-4 backdrop-blur-glass ${isToday ? 'h-header bg-header' : 'h-20 bg-app/95'}`}>
         <Link to="/" className="min-w-0 rounded-small">{isToday?<TodayIdentity username={profile?.username}/>:<span className="text-lg font-extrabold">LIFE<span className="text-pu">RPG</span></span>}</Link>
         <div ref={menu} className="relative flex items-center gap-3">
           <Link to="/tienda" className="text-sm font-bold text-gold" aria-label="Monedas y tienda">{(profile?.coins ?? 0).toLocaleString('es-CO',isToday?{notation:'compact',maximumFractionDigits:1}:{})}{!isToday && ' monedas'}</Link>
@@ -45,7 +45,7 @@ export default function Layout() {
           </nav>}
         </div>
       </header>
-      <main className="flex-1 animate-fade-up px-4 pb-28 pt-5">
+      <main className={`flex-1 animate-fade-up px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] pt-5 ${location.pathname.startsWith('/pilares/')?'pillar-page':''}`}>
         <Outlet />
       </main>
       <nav className="fixed bottom-0 left-1/2 z-20 w-full max-w-md -translate-x-1/2 px-3 pb-[max(env(safe-area-inset-bottom),12px)]">
