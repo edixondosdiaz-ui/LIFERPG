@@ -8,17 +8,11 @@ import * as ex from '../services/experience'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import * as px from '../services/pillars'
-import { BarChart, Meter, Ring } from '../components/charts'
+import { BarChart } from '../components/charts'
 import { Card, Chip, Empty, GoalEditor, PillarHeader, Segment, Stat, Tabs, Toast, confirmDelete, useToast, xpText } from '../components/ui'
 import { addDays, avg, fmtDay, lastDays, sum, today as todayStr, weekdayLetter } from '../lib/dates'
 
-const GREEN = palette.health, BLUE = palette.hydration, INDIGO = palette.sleep, ORANGE = palette.nutrition
-const MEALS = [
-  { id: 'desayuno', label: 'Desayuno', icon: '🍳' },
-  { id: 'almuerzo', label: 'Almuerzo', icon: '🍛' },
-  { id: 'cena', label: 'Cena', icon: '🍽️' },
-  { id: 'snack', label: 'Snacks', icon: '🍎' },
-]
+const GREEN = palette.health, BLUE = palette.hydration, INDIGO = palette.sleep
 const QUALITY = ['Muy mala', 'Mala', 'Regular', 'Buena', 'Excelente']
 const QUALITY_EMOJI = ['😫', '😕', '😐', '🙂', '😄']
 
@@ -227,128 +221,6 @@ function Sleep({ data, settings, reload, notify, saveSettings }) {
   )
 }
 
-/* -------------------------------- COMIDA ---------------------------------- */
-const sumMacros = (rows) => ({ kcal: sum(rows, (r) => r.kcal), protein: sum(rows, (r) => r.protein_g), carbs: sum(rows, (r) => r.carbs_g), fat: sum(rows, (r) => r.fat_g) })
-
-function Food({ data, settings, reload, notify, saveSettings }) {
-  const t = todayStr()
-  const { refreshProfile } = useAuth()
-  const [type, setType] = useState('desayuno')
-  const [f, setF] = useState({ name: '', quantity: '', kcal: '', protein: '', carbs: '', fat: '' })
-  const [range, setRange] = useState('semana')
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
-
-  const todayRows = data.meals.filter((m) => m.logged_on === t)
-  const tot = sumMacros(todayRows)
-  const kcalPct = Math.round((tot.kcal / settings.kcal_goal) * 100)
-
-  async function save(e) {
-    e.preventDefault()
-    try {
-      const r = await px.logMeal({ type, name: f.name, quantity: f.quantity, kcal: Number(f.kcal) || 0, protein: Number(f.protein) || 0, carbs: Number(f.carbs) || 0, fat: Number(f.fat) || 0 })
-      setF({ name: '', quantity: '', kcal: '', protein: '', carbs: '', fat: '' })
-      await Promise.all([reload(), refreshProfile()])
-      notify(`Agregado a ${MEALS.find((m) => m.id === type).label.toLowerCase()}${xpText(r)}`)
-    } catch (err) { notify(healthFailure(err), 'err') }
-  }
-  async function remove(id) { try { await px.deleteMeal(id); reload() } catch (e) { notify(healthFailure(e), 'err') } }
-
-  const n = range === 'semana' ? 7 : 30
-  const days = lastDays(n)
-  const perDay = days.map((d) => ({ d, ...sumMacros(data.meals.filter((m) => m.logged_on === d)) }))
-  const withData = perDay.filter((p) => p.kcal > 0)
-
-  return (
-    <div className="space-y-4">
-      <Card>
-        <div className="flex items-center gap-5">
-          <Ring pct={kcalPct} color={ORANGE} size={124}>
-            <div><p className="text-2xl font-black leading-none">{Math.round(tot.kcal)}</p><p className="mt-1 text-[10px] text-sub">de {settings.kcal_goal} kcal</p></div>
-          </Ring>
-          <div className="min-w-0 flex-1 space-y-2.5">
-            <Meter label="Proteínas" value={tot.protein} goal={settings.protein_goal} unit="g" color={palette.protein} />
-            <Meter label="Carbohidratos" value={tot.carbs} goal={settings.carbs_goal} unit="g" color={palette.carbs} />
-            <Meter label="Grasas" value={tot.fat} goal={settings.fat_goal} unit="g" color={palette.fat} />
-          </div>
-        </div>
-        <p className="text-[11px] text-sub">
-          {tot.kcal === 0 ? 'Aún no has registrado comidas hoy.' : tot.kcal > settings.kcal_goal ? `Superaste tu meta por ${Math.round(tot.kcal - settings.kcal_goal)} kcal.` : `Te quedan ${Math.round(settings.kcal_goal - tot.kcal)} kcal.`}
-        </p>
-      </Card>
-
-      <Card title="Agregar alimento">
-        <form onSubmit={save} className="space-y-2.5">
-          <div className="grid grid-cols-4 gap-1.5">
-            {MEALS.map((m) => (
-              <button key={m.id} type="button" onClick={() => setType(m.id)} aria-pressed={type === m.id}
-                className={`rounded-2xl border py-2 text-[11px] font-bold transition active:scale-press ${type === m.id ? 'border-nutrition bg-nutrition/15 text-nutrition' : 'border-white/10 bg-white/5 text-sub'}`}>
-                <span className="block text-lg">{m.icon}</span>{m.label}
-              </button>
-            ))}
-          </div>
-          <div className="grid grid-cols-[1.6fr_1fr] gap-2">
-            <input className="field" placeholder="Alimento (ej: Arepa con huevo)" required maxLength={80} value={f.name} onChange={set('name')} />
-            <input className="field" placeholder="Cantidad" maxLength={30} value={f.quantity} onChange={set('quantity')} />
-          </div>
-          <div className="grid grid-cols-4 gap-2">
-            {[['kcal', 'Kcal'], ['protein', 'Prot. g'], ['carbs', 'Carb. g'], ['fat', 'Grasa g']].map(([k, ph]) => (
-              <input key={k} className="field !px-3" type="number" inputMode="decimal" min="0" step="0.1" placeholder={ph} aria-label={ph} value={f[k]} onChange={set(k)} />
-            ))}
-          </div>
-          <button className="btn w-full" disabled={!f.name.trim()}>Agregar</button>
-        </form>
-      </Card>
-
-      <div className="space-y-3">
-        {MEALS.map((m) => {
-          const rows = todayRows.filter((r) => r.meal_type === m.id)
-          const s = sumMacros(rows)
-          return (
-            <section key={m.id} className="surface p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-sm font-extrabold">{m.icon} {m.label}</h3>
-                <span className="text-[11px] text-sub">{Math.round(s.kcal)} kcal</span>
-              </div>
-              {rows.length === 0 ? <p className="text-xs text-sub">Nada registrado.</p> : (
-                <div className="space-y-1.5">
-                  {rows.map((r) => (
-                    <div key={r.id} className="flex items-start justify-between gap-2 rounded-2xl border border-white/[.06] bg-card2/70 px-3 py-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold">{r.food_name}{r.quantity ? <span className="text-sub"> · {r.quantity}</span> : null}</p>
-                        <p className="text-[11px] text-sub">{r.kcal} kcal · P {Number(r.protein_g)} · C {Number(r.carbs_g)} · G {Number(r.fat_g)}</p>
-                      </div>
-                      <button onClick={() => remove(r.id)} aria-label="Borrar alimento" className="flex-none rounded-full px-2 text-sub hover:bg-error/15 hover:text-error">×</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          )
-        })}
-      </div>
-
-      <Card title="Historial nutricional" right={<Tabs value={range} onChange={setRange} color={GREEN} items={[{ id: 'semana', label: 'Semana' }, { id: 'mes', label: 'Mes' }]} />}>
-        <BarChart colors={[ORANGE]} goal={settings.kcal_goal} format={(v) => `${Math.round(v)} kcal`} labelEvery={n === 7 ? 1 : 5}
-          data={perDay.map((p) => ({ label: n === 7 ? weekdayLetter(p.d) : p.d.slice(8), value: Math.round(p.kcal), active: p.d === t }))} empty="Registra comidas para ver tu historial." />
-        {withData.length > 0 && (
-          <div className="grid grid-cols-2 gap-2">
-            <Stat label="Calorías promedio" value={`${Math.round(avg(withData, (p) => p.kcal))} kcal`} sub={`${withData.length} días con registro`} color={ORANGE} />
-            <Stat label="Días en la meta (±10%)" value={`${withData.filter((p) => Math.abs(p.kcal - settings.kcal_goal) <= settings.kcal_goal * 0.1).length}/${withData.length}`} />
-            <Stat label="Proteína promedio" value={`${Math.round(avg(withData, (p) => p.protein))} g`} sub={`meta ${settings.protein_goal} g`} />
-            <Stat label="Carb. / Grasa prom." value={`${Math.round(avg(withData, (p) => p.carbs))} / ${Math.round(avg(withData, (p) => p.fat))} g`} />
-          </div>
-        )}
-        <GoalEditor title="Objetivos nutricionales" settings={settings} onSave={(p) => saveSettings(p)} fields={[
-          { key: 'kcal_goal', label: 'Calorías', unit: 'kcal', min: 800, max: 8000, step: 50 },
-          { key: 'protein_goal', label: 'Proteínas', unit: 'g', min: 0, max: 500 },
-          { key: 'carbs_goal', label: 'Carbohidratos', unit: 'g', min: 0, max: 1000 },
-          { key: 'fat_goal', label: 'Grasas', unit: 'g', min: 0, max: 400 },
-        ]} />
-      </Card>
-    </div>
-  )
-}
-
 /* -------------------------------- PANTALLA -------------------------------- */
 export default function Salud() {
   const {user}=useAuth()
@@ -363,15 +235,15 @@ export default function Salud() {
   }
   const [settings, setSettings] = useState(px.DEFAULT_SETTINGS)
   const [notifications, setNotifications] = useState(false)
-  const [data, setData] = useState({ water: [], sleep: [], meals: [] })
+  const [data, setData] = useState({ water: [], sleep: [] })
   const [ready, setReady] = useState(false)
   const [toast, notify] = useToast()
   const waterRef = useRef({ total: 0, goal: 2000 })
 
   const reload = useCallback(async () => {
     const since = addDays(todayStr(), -29)
-    const [water, sleep, meals] = await Promise.all([px.listWater(since), px.listSleep(since), px.listMeals(since)])
-    setData({ water, sleep, meals });setDataReady(true)
+    const [water, sleep] = await Promise.all([px.listWater(since), px.listSleep(since)])
+    setData({ water, sleep });setDataReady(true)
   }, [])
 
   useEffect(() => {
@@ -401,12 +273,11 @@ export default function Salud() {
   const props = { data, settings, reload, notify, saveSettings, enableNotifications }
   return (
     <div className="space-y-5">
-      <PillarHeader pillar="vitalidad" title="Salud" kicker="Movimiento, descanso y alimentación" color={GREEN} icon="❤️" />
+      <PillarHeader pillar="vitalidad" title="Salud" kicker="Movimiento, hidratación y descanso" color={GREEN} icon="❤️" />
       <HealthSections order={order} onOrder={changeOrder} disabled={!layoutReady || savingOrder} status={<>{layoutMessage && <p role="status" className="text-[12px] text-sub">{layoutMessage}</p>}{!layoutReady && layoutMessage && <button className="pilot-secondary" onClick={readLayout}>Reintentar cargar orden</button>}</>}>{ {
         running:<Running embedded/>,
         water:dataReady?<Water {...props}/>:<p className="text-sm text-sub">{ready?'No pudimos cargar tus registros. Intenta de nuevo.':'Cargando hidratación…'}</p>,
-        sleep:dataReady?<Sleep {...props}/>:<p className="text-sm text-sub">{ready?'No pudimos cargar tus registros. Intenta de nuevo.':'Cargando sueño…'}</p>,
-        food:dataReady?<Food {...props}/>:<p className="text-sm text-sub">{ready?'No pudimos cargar tus registros. Intenta de nuevo.':'Cargando alimentos…'}</p>
+        sleep:dataReady?<Sleep {...props}/>:<p className="text-sm text-sub">{ready?'No pudimos cargar tus registros. Intenta de nuevo.':'Cargando sueño…'}</p>
       } }</HealthSections>
 
 

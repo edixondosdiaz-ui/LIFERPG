@@ -3,8 +3,9 @@ import { pillarThemes } from '../design/tokens'
 import { Ring } from './charts'
 import { palette } from '../design/tokens'
 
-export function PillarTile({ pillar, title, path, level, days, action, busy, onQuick, preview=false, children }) {
+export function PillarTile({ pillar, title, path, level, days, action, busy, onQuick, preview=false, wholeLink=false, children }) {
   const content=<><div className="flex items-center justify-between gap-2"><h2 className="text-lg font-extrabold">{title}</h2><span className="pillar-ink text-xs font-bold">Nivel {level ?? '—'}</span></div><p className="mb-3 mt-2 text-xs text-sub">{days===null ? 'Tu actividad semanal aparecerá aquí' : `${days} de 7 días activos esta semana`}</p><div className="pilot-bar"><div className="pillar-fill h-full rounded-full transition-all duration-ui" style={{width:`${(days ?? 0)/7*100}%`}}/></div></>
+  if(wholeLink && !preview)return <Link to={path} className={`pilot-pillar block ${pillarThemes[pillar].classes}`} aria-label={`Entrar a ${title}`}>{content}<span className="pillar-action"><span>{action}</span><span aria-hidden="true" className="pillar-ink">↗</span></span></Link>
   return <section className={`pilot-pillar ${pillarThemes[pillar].classes}`}>
     {preview ? <div>{content}</div> : <Link to={path} className="block rounded-small" aria-label={`Abrir ${title}`}>{content}</Link>}
     <button disabled={busy || preview} onClick={onQuick} className="pillar-action"><span>{action}</span><span aria-hidden="true" className="pillar-ink">↗</span></button>

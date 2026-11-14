@@ -1,6 +1,6 @@
 import { PillarTile } from '../components/PilotCards'
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import * as ex from '../services/experience'
 import * as px from '../services/pillars'
@@ -12,12 +12,12 @@ import { PRODUCT } from '../lib/product'
 
 const CARDS = {
   fuerza: { path: 'fuerza', action: 'Empezar la rutina de hoy' },
-  vitalidad: { path: 'salud', action: '+250 ml de agua' },
+  vitalidad: { path: 'salud', action: 'Entrar a Salud' },
   intelecto: { path: 'educacion', action: 'Iniciar Pomodoro' },
   finanzas: { path: 'finanzas', action: 'Registrar movimiento' },
 }
 export default function Dashboard() {
-  const { profile, user, refreshProfile } = useAuth()
+  const { profile, user } = useAuth()
   const habits=useHabitWeek(user?.id)
   const navigate = useNavigate()
   const [rows, setRows] = useState(null)
@@ -31,9 +31,7 @@ export default function Dashboard() {
     setBusy(true); setMsg('')
     try {
       if (key === 'vitalidad') {
-        const r = await px.logWater(250)
-        setMsg(`Agua registrada: ${r.total} ml hoy${r.xp_awarded ? ` · +${r.xp_awarded} XP` : ''}`)
-        await refreshProfile(); setRows(await ex.activity())
+        navigate('/pilares/salud')
       } else if (key === 'fuerza') {
         await ex.timerAction('workout','start'); navigate('/pilares/fuerza')
       } else if (key === 'intelecto') {
@@ -50,8 +48,7 @@ export default function Dashboard() {
       {Object.entries(PILLARS).map(([key,p]) => {
         const c=CARDS[key], lp=levelProgress(profile?.pillar_xp?.[key] ?? 0)
         const days=rows ? new Set(rows.filter(r => r.pillar===key && r.day>=weekStart()).map(r=>r.day)).size : null
-        return <PillarTile key={key} pillar={key} title={p.label} path={`/pilares/${c.path}`} level={lp.level} days={days} action={c.action} busy={busy} onQuick={()=>quick(key)}>
-          {key==='vitalidad' && <Link to="/pilares/salud/correr" className="mt-2 flex min-h-[44px] items-center justify-center text-xs font-semibold text-health">Correr / Caminar →</Link>}
+        return <PillarTile key={key} pillar={key} title={p.label} path={`/pilares/${c.path}`} level={lp.level} days={days} action={c.action} busy={busy} onQuick={()=>quick(key)} wholeLink={key==='vitalidad'}>
         </PillarTile>
       })}
     </div>

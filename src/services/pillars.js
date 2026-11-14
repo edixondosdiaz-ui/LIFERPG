@@ -6,7 +6,7 @@ import { PRODUCT } from '../lib/product'
 
 export const DEFAULT_SETTINGS = {
   water_goal_ml: PRODUCT.waterGoalMl, water_reminder_min: null, sleep_goal_h: 8,
-  kcal_goal: 2200, protein_goal: 120, carbs_goal: 250, fat_goal: 70, study_goal_min_week: 600,
+  study_goal_min_week: 600,
 }
 
 export async function getSettings() {
@@ -73,17 +73,6 @@ export async function listSleep(since) {
 export const logSleep = async ({ date, bed = null, wake = null, hours = null, quality = null }) =>
   unwrap(await supabase.rpc('log_sleep', { p_slept_on: date, p_bed: bed, p_wake: wake, p_hours: hours, p_quality: quality }))
 export const deleteSleep = async (id) => unwrap(await supabase.from('sleep_logs').delete().eq('id', id))
-
-export async function listMeals(since) {
-  return unwrap(await supabase.from('meals')
-    .select('id, meal_type, food_name, quantity, kcal, protein_g, carbs_g, fat_g, logged_on')
-    .gte('logged_on', since).order('created_at', { ascending: true }).limit(3000))
-}
-export const logMeal = async (m) => unwrap(await supabase.rpc('log_meal', {
-  p_meal_type: m.type, p_food_name: m.name, p_quantity: m.quantity || null,
-  p_kcal: m.kcal || 0, p_protein: m.protein || 0, p_carbs: m.carbs || 0, p_fat: m.fat || 0,
-}))
-export const deleteMeal = async (id) => unwrap(await supabase.from('meals').delete().eq('id', id))
 
 /* ---------- Educación ---------- */
 

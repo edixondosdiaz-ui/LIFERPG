@@ -34,7 +34,7 @@ export default function Premium() {
         <div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr className="border-b border-white/10"><th className="py-3">Beneficio</th><th>Gratis</th><th className="text-pu-light">Premium</th></tr></thead><tbody>{[
           ['Tienda','Precio normal',`${status.discount}% de descuento`],
           ['Cambios de usuario','Uno inicial + tarjetas',`Uno extra cada ${status.rename_days} días`],
-          ['Rutinas',`${status.free_routines ?? 3}`, 'Ilimitadas'],
+          ['Rutinas',`${status.free_routines ?? '—'}`, 'Ilimitadas'],
           ['Estadísticas','Resumen básico',`${status.trend_months ?? 12} meses`],
           ['Marco e insignia exclusivos','No incluidos','Incluidos mientras esté activo'],
           ['Protectores de racha','Máximo 2','Máximo 2'],

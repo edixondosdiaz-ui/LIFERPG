@@ -48,3 +48,24 @@ test('marcas cortas agrupan series iguales sin mezclar ejercicios ni RIR',()=>{
   assert.equal(groups.length,3)
   assert.equal(groups[0].count,2)
 })
+
+// El formato compacto conserva el orden de cada serie, sin agrupar variaciones.
+test('marcas variables quedan en un ejercicio y conservan 5, 4 y 3 repeticiones',async()=>{
+ const {compactMarks,seriesRows}=await import('../src/lib/strengthRoutine.js')
+ const rows=[5,4,3].map(reps=>({exercise_id:'press',name:'Press banca',weight_kg:50,reps}))
+ const marks=compactMarks(rows)
+ assert.equal(marks.length,1);assert.equal(marks[0].sameWeight,true);assert.equal(marks[0].sameReps,false)
+ assert.deepEqual(marks[0].rows.map(r=>r.reps),[5,4,3])
+ const editable=seriesRows(rows)
+ assert.deepEqual(editable.map(r=>r.reps),['5','4','3']);assert.ok(editable.every(validSet))
+ editable[0].weight='55';assert.equal(rows[0].weight_kg,50)
+})
+test('formato distingue series iguales, pesos cambiantes y ejercicios distintos',async()=>{
+ const {compactMarks}=await import('../src/lib/strengthRoutine.js')
+ const same=compactMarks(Array.from({length:3},()=>({exercise_id:'a',name:'Press',weight_kg:30,reps:6})))
+ assert.equal(same[0].sameWeight,true);assert.equal(same[0].sameReps,true);assert.equal(same[0].rows.length,3)
+ const varied=compactMarks([{exercise_id:'a',weight_kg:50,reps:5},{exercise_id:'b',weight_kg:20,reps:8},{exercise_id:'a',weight_kg:45,reps:4},{exercise_id:'a',weight_kg:40,reps:3}])
+ assert.equal(varied.length,2);assert.equal(varied[0].sameWeight,false)
+ assert.deepEqual(varied[0].rows.map(r=>[r.weight_kg,r.reps]),[[50,5],[45,4],[40,3]])
+ assert.deepEqual(compactMarks([]),[])
+})

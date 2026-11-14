@@ -29,3 +29,13 @@ export function previousMarks(rows){
     if(old)old.count++;else groups.push({...row,count:1})}
   return groups
 }
+
+export function seriesRows(sets){return sets.map(s=>({weight:String(s.weight_kg),reps:String(s.reps),sets:'1',rest:s.rest_seconds==null?'':String(s.rest_seconds),rir:s.rir==null?'':String(s.rir)}))}
+export function compactMarks(rows){
+ const groups=new Map()
+ for(const row of rows){const id=row.exercise_id;if(!groups.has(id))groups.set(id,{id,name:row.name,rows:[]});groups.get(id).rows.push(row)}
+ return [...groups.values()].map(g=>{
+  const sameWeight=g.rows.every(r=>Number(r.weight_kg)===Number(g.rows[0].weight_kg)),sameReps=g.rows.every(r=>r.reps===g.rows[0].reps)
+  return {...g,sameWeight,sameReps}
+ })
+}

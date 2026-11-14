@@ -9,7 +9,7 @@ import { PillarTile } from '../components/PilotCards'
 import { TodayIdentity, XPAvatar } from '../components/TodayHeader'
 import WeeklyHabitStreak from '../components/WeeklyHabitStreak'
 
-const titles = {fuerza:['Fuerza','Empezar la rutina de hoy'],vitalidad:['Salud','+250 ml de agua'],intelecto:['Educación','Iniciar Pomodoro'],finanzas:['Finanzas','Registrar movimiento']}
+const titles = {fuerza:['Fuerza','Empezar la rutina de hoy'],vitalidad:['Salud','Entrar a Salud'],intelecto:['Educación','Iniciar Pomodoro'],finanzas:['Finanzas','Registrar movimiento']}
 export default function Preview() {
   const [screen,setScreen]=useState(new URLSearchParams(location.search).get('pantalla') || 'hoy')
   const [amount,setAmount]=useState('')
