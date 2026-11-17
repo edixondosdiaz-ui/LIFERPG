@@ -8,6 +8,7 @@ import { clock, fmtDuration } from '../lib/dates'
 
 export default function Strength(){
   const { refreshProfile } = useAuth()
+  const [selectedRoutine,setSelectedRoutine]=useState('')
   const [start, setStart] = useState(null)
   const [timerReady, setTimerReady] = useState(false)
   const [timerBusy, setTimerBusy] = useState(false)
@@ -32,7 +33,7 @@ export default function Strength(){
   const elapsed=ex.timerSeconds(start)
   return <div className="space-y-5">
     <PillarHeader pillar="fuerza" title="Fuerza" kicker="Entrenamiento" color={palette.strength} icon="⚔️"/>
-      <Card className="!bg-card" title="Entrenamiento de hoy"
+      {(selectedRoutine || start) && <Card className="!bg-card" title="Entrenamiento de hoy"
         right={start ? <span className="rounded-full bg-error/15 px-2.5 py-1 text-[10px] font-extrabold text-error">● En curso</span> : null}>
         {start ? (
           <div className="flex items-center justify-between gap-3">
@@ -46,10 +47,10 @@ export default function Strength(){
           </div>
         )}
         {summary && <div role="status" className="rounded-2xl bg-pu/10 p-4 text-sm"><b>Entrenamiento terminado</b><p>{fmtDuration(summary.seconds)} · {Math.round(summary.volume).toLocaleString('es-CO')} kg de volumen</p><p>{summary.personal_records} récords personales · +{summary.total_xp} XP en Fuerza durante la sesión</p></div>}
-      </Card>
+      </Card>}
 
 
-    <RoutineWorkout revision={revision} notify={notify}/>
+    <RoutineWorkout revision={revision} notify={notify} onSelection={setSelectedRoutine}/>
     <Toast msg={toast}/>
   </div>
 }

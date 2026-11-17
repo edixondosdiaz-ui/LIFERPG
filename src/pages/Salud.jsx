@@ -1,14 +1,13 @@
+import { Outlet, useOutletContext } from 'react-router-dom'
+import PillarMenu from '../components/PillarMenu'
 import { HydrationPanel } from '../components/PilotCards'
 import { palette } from '../design/tokens'
 import Running from './Running'
-import HealthSections from '../components/HealthSections'
-import { healthOrder, healthFailure } from '../lib/healthLayout'
-import { loadHealthLayout, saveHealthLayout } from '../services/healthLayout'
+import { healthFailure } from '../lib/healthLayout'
 import * as ex from '../services/experience'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import * as px from '../services/pillars'
-import { BarChart } from '../components/charts'
 import { Card, Chip, Empty, GoalEditor, PillarHeader, Segment, Stat, Tabs, Toast, confirmDelete, useToast, xpText } from '../components/ui'
 import { addDays, avg, fmtDay, lastDays, sum, today as todayStr, weekdayLetter } from '../lib/dates'
 
@@ -52,12 +51,7 @@ function Water({ data, settings, reload, notify, saveSettings, enableNotificatio
   }
   async function remove(id) { try { await px.deleteWater(id); reload() } catch (e) { notify(healthFailure(e), 'err') } }
 
-  const n = range === 'semana' ? 7 : 30
-  const days = lastDays(n)
-  const series = days.map((d) => ({ label: n === 7 ? weekdayLetter(d) : d.slice(8), value: byDay.get(d) || 0, active: d === t }))
-  const logged = days.filter((d) => byDay.has(d))
-  const metDays = days.filter((d) => (byDay.get(d) || 0) >= goal).length
-
+  const days=lastDays(range==='semana'?7:30),logged=days.filter(d=>byDay.has(d)),metDays=days.filter(d=>(byDay.get(d)||0)>=goal).length
   async function setReminder(min) {
     if (min && typeof Notification !== 'undefined' && Notification.permission === 'default') {
       const p = await Notification.requestPermission()
@@ -98,10 +92,10 @@ function Water({ data, settings, reload, notify, saveSettings, enableNotificatio
           )
         ) : (
           <>
-            <BarChart colors={[BLUE]} goal={goal} data={series} labelEvery={n === 7 ? 1 : 5} format={L} empty="Registra agua para ver tu historial." />
+            <p className="text-xs text-sub">Promedio de los días registrados y cumplimiento de tu meta.</p>
             <div className="grid grid-cols-3 gap-2">
               <Stat label="Promedio diario" value={logged.length ? L(avg(logged, (d) => byDay.get(d))) : '–'} />
-              <Stat label="Metas cumplidas" value={`${metDays}/${n}`} color={BLUE} />
+              <Stat label="Metas cumplidas" value={`${metDays}/${days.length}`} color={BLUE} />
               <Stat label="Total" value={L(sum(days, (d) => byDay.get(d) || 0))} />
             </div>
           </>
@@ -132,12 +126,9 @@ function Sleep({ data, settings, reload, notify, saveSettings }) {
   const [wake, setWake] = useState('07:00')
   const [hours, setHours] = useState('')
   const [quality, setQuality] = useState(null)
-  const [range, setRange] = useState('semana')
 
   const map = new Map(data.sleep.map((s) => [s.slept_on, s]))
   const preview = mode === 'horario' ? hoursBetween(bed, wake) : Number(hours) || null
-  const days = lastDays(range === 'semana' ? 7 : 30)
-  const logged = days.map((d) => map.get(d)).filter(Boolean)
   const last = [...data.sleep].sort((a, b) => b.slept_on.localeCompare(a.slept_on))[0]
 
   // Días seguidos cumpliendo el objetivo (si hoy aún no hay registro, cuenta desde ayer)
@@ -197,12 +188,6 @@ function Sleep({ data, settings, reload, notify, saveSettings }) {
         <Stat label="Promedio mensual" value={(() => { const w = lastDays(30).map((d) => map.get(d)).filter(Boolean); return w.length ? fmtH(avg(w, (s) => s.hours)) : '–' })()} />
       </div>
 
-      <Card title="Evolución" right={<Tabs value={range} onChange={setRange} color={GREEN} items={[{ id: 'semana', label: 'Semana' }, { id: 'mes', label: 'Mes' }]} />}>
-        <BarChart colors={[INDIGO]} goal={goal} format={fmtH} labelEvery={range === 'semana' ? 1 : 5}
-          data={days.map((d) => ({ label: range === 'semana' ? weekdayLetter(d) : d.slice(8), value: Number(map.get(d)?.hours || 0), active: d === t }))} empty="Registra tu sueño para ver la gráfica." />
-        {logged.some((s) => s.quality) && <p className="text-[11px] text-sub">Calidad promedio: <b className="text-ink">{QUALITY_EMOJI[Math.round(avg(logged.filter((s) => s.quality), (s) => s.quality)) - 1]} {avg(logged.filter((s) => s.quality), (s) => s.quality).toFixed(1)} / 5</b></p>}
-      </Card>
-
       <Card title="Registros recientes">
         {data.sleep.length === 0 ? <p className="text-xs text-sub">Aún no hay registros.</p> : (
           <div className="space-y-1.5">
@@ -223,16 +208,7 @@ function Sleep({ data, settings, reload, notify, saveSettings }) {
 
 /* -------------------------------- PANTALLA -------------------------------- */
 export default function Salud() {
-  const {user}=useAuth()
-  const [order,setOrder]=useState(healthOrder()),[layoutReady,setLayoutReady]=useState(false),[savingOrder,setSavingOrder]=useState(false),[layoutMessage,setLayoutMessage]=useState(''),[dataReady,setDataReady]=useState(false)
-  const savingRef=useRef(false)
-  const readLayout=useCallback(async()=>{try{const row=await loadHealthLayout();setOrder(healthOrder(row?.section_order));setLayoutReady(true);setLayoutMessage('')}catch(e){setLayoutMessage(healthFailure(e,'No pudimos recuperar el orden de tus tarjetas. Intenta de nuevo.'))}},[])
-  useEffect(()=>{if(user?.id)readLayout()},[user?.id,readLayout])
-  async function changeOrder(next){
-    if(savingRef.current || !layoutReady)return
-    const previous=order;savingRef.current=true;setSavingOrder(true);setOrder(next);setLayoutMessage('Guardando orden…')
-    try{await saveHealthLayout(user.id,next);setLayoutMessage('Orden guardado')}catch(e){setOrder(previous);setLayoutReady(false);setLayoutMessage(healthFailure(e,'No pudimos confirmar el guardado. Mostramos el orden anterior; vuelve a consultarlo.'))}finally{savingRef.current=false;setSavingOrder(false)}
-  }
+  const [dataReady,setDataReady]=useState(false)
   const [settings, setSettings] = useState(px.DEFAULT_SETTINGS)
   const [notifications, setNotifications] = useState(false)
   const [data, setData] = useState({ water: [], sleep: [] })
@@ -274,15 +250,12 @@ export default function Salud() {
   return (
     <div className="space-y-5">
       <PillarHeader pillar="vitalidad" title="Salud" kicker="Movimiento, hidratación y descanso" color={GREEN} icon="❤️" />
-      <HealthSections order={order} onOrder={changeOrder} disabled={!layoutReady || savingOrder} status={<>{layoutMessage && <p role="status" className="text-[12px] text-sub">{layoutMessage}</p>}{!layoutReady && layoutMessage && <button className="pilot-secondary" onClick={readLayout}>Reintentar cargar orden</button>}</>}>{ {
-        running:<Running embedded/>,
-        water:dataReady?<Water {...props}/>:<p className="text-sm text-sub">{ready?'No pudimos cargar tus registros. Intenta de nuevo.':'Cargando hidratación…'}</p>,
-        sleep:dataReady?<Sleep {...props}/>:<p className="text-sm text-sub">{ready?'No pudimos cargar tus registros. Intenta de nuevo.':'Cargando sueño…'}</p>
-      } }</HealthSections>
-
-
+      <PillarMenu pillar="salud"/>
+      <Outlet context={{...props,dataReady,ready}}/>
       {ready && !dataReady && <button className="pilot-secondary" onClick={()=>reload().catch(e=>notify(healthFailure(e),'err'))}>Reintentar cargar registros</button>}
       <Toast msg={toast} />
     </div>
   )
 }
+
+export function HealthView({view}){const props=useOutletContext();return view==='correr'?<Running embedded/>:!props.dataReady?<p className="text-sm text-sub">{props.ready?'No pudimos cargar tus registros. Intenta de nuevo.':'Cargando registros…'}</p>:view==='hidratacion'?<Water {...props}/>:<Sleep {...props}/> }

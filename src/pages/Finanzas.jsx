@@ -1,11 +1,14 @@
+import DebtControl from '../components/DebtControl'
+import { Outlet, useOutletContext } from 'react-router-dom'
+import PillarMenu from '../components/PillarMenu'
 import COPInput from '../components/COPInput'
 import { palette } from '../design/tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import * as px from '../services/pillars'
-import { BarChart, HBars, LineChart, Meter } from '../components/charts'
+import { HBars, Meter } from '../components/charts'
 import { Card, Chip, Empty, PillarHeader, Segment, Stat, Tabs, Toast, confirmDelete, useToast, xpText } from '../components/ui'
-import { addDays, compactMoney, daysBetween, fmtDay, lastDays, lastMonths, monthLabel, monthStart, money, nextRecurring, sum, today as todayStr, weekStart } from '../lib/dates'
+import { addDays, compactMoney, daysBetween, fmtDay, monthStart, money, nextRecurring, sum, today as todayStr, weekStart } from '../lib/dates'
 
 const GOLD = palette.finance, INCOME = palette.success, EXPENSE = palette.error, SAVING = palette.fat
 const EXPENSE_CATS = ['Alimentación', 'Transporte', 'Salud', 'Educación', 'Ocio', 'Suscripciones', 'Hogar', 'Otros']
@@ -20,81 +23,14 @@ const between = (rows, a, b) => rows.filter((r) => r.occurred_on >= a && r.occur
 const flow = (rows) => ({ in: sumKind(rows, 'ingreso'), out: sumKind(rows, 'gasto'), save: sumKind(rows, 'ahorro') })
 
 /* -------------------------------- Resumen --------------------------------- */
-function Summary({ tx, goals, goSection }) {
-  const t = todayStr()
-  const [period, setPeriod] = useState('mes')
-  const [chart, setChart] = useState('dias')
-
-  const all = flow(tx)
-  const available = all.in - all.out - all.save
-  const from = period === 'hoy' ? t : period === 'semana' ? weekStart() : monthStart()
-  const cur = flow(between(tx, from, t))
-  const balance = cur.in - cur.out
-  const savePct = cur.in > 0 ? Math.round((cur.save / cur.in) * 100) : null
-
-  const bars = chart === 'dias'
-    ? lastDays(14).map((d) => { const f = flow(tx.filter((x) => x.occurred_on === d)); return { label: d.slice(8), values: [f.in, f.out], active: d === t } })
-    : lastMonths(6).map((m) => { const f = flow(tx.filter((x) => x.occurred_on.startsWith(m))); return { label: monthLabel(m), values: [f.in, f.out], active: m === t.slice(0, 7) } })
-
-  // Evolución del dinero disponible (últimos 30 días)
-  const days = lastDays(30)
-  let run = sum(tx.filter((x) => x.occurred_on < days[0]), (x) => (x.kind === 'ingreso' ? x.amount : -x.amount))
-  const line = days.map((d) => {
-    run += sum(tx.filter((x) => x.occurred_on === d), (x) => (x.kind === 'ingreso' ? x.amount : -x.amount))
-    return { label: fmtDay(d), value: Math.round(run) }
-  })
-
-  const cats = Object.entries(between(tx, from, t).filter((x) => x.kind === 'gasto').reduce((a, x) => ({ ...a, [x.category]: (a[x.category] || 0) + x.amount }), {}))
-    .sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label: `${CAT_ICON[label] ?? '📦'} ${label}`, value, color: GOLD }))
-
-  const weeks = Array.from({ length: 8 }, (_, i) => {
-    const s = addDays(weekStart(), (i - 7) * 7)
-    return { label: fmtDay(s).replace(/ .*/, ''), value: Math.round(sumKind(between(tx, s, addDays(s, 6)), 'gasto')), active: i === 7 }
-  })
-  const wDelta = weeks[6].value ? Math.round(((weeks[7].value - weeks[6].value) / weeks[6].value) * 100) : null
-
-  const active = goals.map((g) => ({ ...g, saved: sum(tx.filter((x) => x.goal_id === g.id), (x) => x.amount) })).filter((g) => g.saved < g.target_amount).slice(0, 3)
-
-  return (
-    <div className="space-y-4">
-      <section className="relative overflow-hidden rounded-3xl border border-warning/30 bg-gradient-to-br from-warning/20 via-card to-card p-5">
-        <p className="relative text-[11px] font-bold text-sub">Dinero disponible</p>
-        <p className={`relative mt-1 text-xl font-black tracking-tight ${available < 0 ? 'text-error' : ''}`}>{money(available)}</p>
-        <div className="relative mt-3 flex items-center justify-between rounded-2xl bg-white/5 px-3.5 py-2.5 text-xs">
-          <span className="text-sub">🐷 Ahorro acumulado</span><b style={{ color: SAVING }}>{money(all.save)}</b>
-        </div>
-      </section>
-
-      <Tabs color={GOLD} value={period} onChange={setPeriod} items={[{ id: 'hoy', label: 'Hoy' }, { id: 'semana', label: 'Semana' }, { id: 'mes', label: 'Mes' }]} />
-      <div className="grid grid-cols-2 gap-2">
-        <Stat label={`Balance ${period === 'hoy' ? 'diario' : period === 'semana' ? 'semanal' : 'mensual'}`} value={`${balance >= 0 ? '+' : '−'}${money(Math.abs(balance))}`} color={balance >= 0 ? INCOME : EXPENSE} sub="ingresos − gastos" />
-        <Stat label="Porcentaje de ahorro" value={savePct === null ? '–' : `${savePct}%`} color={SAVING} sub={savePct === null ? 'sin ingresos en el periodo' : `${money(cur.save)} ahorrados`} />
-        <Stat label="Ingresos" value={money(cur.in)} color={INCOME} />
-        <Stat label="Gastos" value={money(cur.out)} color={EXPENSE} />
-      </div>
-
-      <Card title="Ingresos vs. gastos" right={<Tabs value={chart} onChange={setChart} color={GOLD} items={[{ id: 'dias', label: '14 días' }, { id: 'meses', label: '6 meses' }]} />}>
-        <BarChart colors={[INCOME, EXPENSE]} data={bars} format={compactMoney} labelEvery={chart === 'dias' ? 2 : 1} empty="Registra movimientos para compararlos." />
-        <p className="flex gap-4 text-[11px] text-sub"><span><i className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: INCOME }} />Ingresos</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: EXPENSE }} />Gastos</span></p>
-      </Card>
-
-      <Card title="Evolución del dinero disponible"><LineChart points={line} color={GOLD} format={money} empty="Registra movimientos para ver tu evolución." /></Card>
-
-      <Card title={`Gastos por categoría · ${period === 'hoy' ? 'hoy' : period === 'semana' ? 'esta semana' : 'este mes'}`}>
-        <HBars items={cats} format={money} empty="Sin gastos en este periodo." />
-      </Card>
-
-      <Card title="Tendencia de gasto semanal" right={wDelta !== null ? <span className={`text-[11px] font-extrabold ${wDelta <= 0 ? 'text-success' : 'text-error'}`}>{wDelta >= 0 ? '▲' : '▼'} {Math.abs(wDelta)}% vs. semana pasada</span> : null}>
-        <BarChart colors={[GOLD]} data={weeks} format={money} empty="Aún no hay gastos registrados." />
-      </Card>
-
-      <Card title="Metas en progreso" right={<button onClick={goSection} className="text-[11px] font-bold text-sub">Ver todas</button>}>
-        {active.length === 0 ? <p className="text-xs text-sub">Crea una meta para ver su avance aquí.</p> : (
-          <div className="space-y-3">{active.map((g) => <Meter key={g.id} label={`${g.icon} ${g.name}`} value={g.saved} goal={g.target_amount} color={SAVING} format={compactMoney} />)}</div>
-        )}
-      </Card>
-    </div>
-  )
+function Summary({tx,goals}){
+ const [period,setPeriod]=useState('hoy'),t=todayStr()
+ const from=period==='hoy'?t:period==='semana'?weekStart():monthStart(),cur=flow(between(tx,from,t))
+ const yesterday=sumKind(between(tx,addDays(t,-1),addDays(t,-1)),'gasto')
+ const currentWeek=sumKind(between(tx,weekStart(),t),'gasto'),previousWeek=sumKind(between(tx,addDays(weekStart(),-7),addDays(weekStart(),-1)),'gasto')
+ const cats=Object.entries(between(tx,from,t).filter(x=>x.kind==='gasto').reduce((out,x)=>({...out,[x.category]:(out[x.category] || 0)+Number(x.amount)}),{})).sort((a,b)=>b[1]-a[1]).map(([label,value])=>({label:`${label} · ${cur.out?Math.round(value/cur.out*100):0}%`,value,color:GOLD}))
+ const all=flow(tx)
+ return <div className="space-y-4"><Tabs color={GOLD} value={period} onChange={setPeriod} items={[{id:'hoy',label:'Hoy'},{id:'semana',label:'Semana'},{id:'mes',label:'Mes'}]}/><div className="grid grid-cols-2 gap-2"><Stat label="Gastos del periodo" value={money(cur.out)} color={EXPENSE}/><Stat label="Ahorro registrado" value={money(cur.save)} color={SAVING}/><Stat label="Ingresos registrados" value={money(cur.in)} color={INCOME}/><Stat label="Saldo de registros" value={money(all.in-all.out-all.save)} sub="Ingresos menos gastos y ahorro; no es un saldo bancario."/></div><Card title="¿En qué se va tu dinero?"><HBars items={cats} format={money} empty="Sin gastos en este periodo."/><p className="text-xs text-sub">Cada barra muestra el gasto de la categoría; el porcentaje corresponde al total del periodo.</p></Card><Card title="Control del gasto"><p className="text-sm">Hoy: <b>{money(sumKind(between(tx,t,t),'gasto'))}</b> · Ayer: {money(yesterday)}</p><p className="text-sm">Esta semana: <b>{money(currentWeek)}</b> · Semana anterior completa: {money(previousWeek)}</p><p className="text-xs text-sub">Son montos registrados; la semana actual puede estar incompleta.</p></Card><Card title="Metas en progreso">{goals.length?goals.map(g=><Meter key={g.id} label={g.name} value={sum(tx.filter(x=>x.goal_id===g.id),x=>x.amount)} goal={g.target_amount} color={SAVING} format={compactMoney}/>):<p className="text-xs text-sub">Aún no tienes metas.</p>}</Card></div>
 }
 
 /* ------------------------------- Movimientos ------------------------------ */
@@ -108,7 +44,8 @@ function Movements({ tx, goals, recurring, reload, notify, historyOnly = false }
   const [goalId, setGoalId] = useState(null)
   const [date, setDate] = useState(t)
   const [every, setEvery] = useState('nunca')
-  const [filter, setFilter] = useState('todos')
+  const [filter, setFilter] = useState('gasto')
+  const [search,setSearch]=useState('')
   const [limit, setLimit] = useState(30)
   const [busy, setBusy] = useState(false)
 
@@ -136,7 +73,7 @@ function Movements({ tx, goals, recurring, reload, notify, historyOnly = false }
   async function remove(id) { if (confirmDelete('¿Borrar este movimiento?')) { try { await px.deleteTransaction(id); reload() } catch (e) { notify(e.message, 'err') } } }
   async function removeRec(id) { if (confirmDelete('¿Dejar de repetir este movimiento? Los ya generados se conservan.')) { try { await px.deleteRecurring(id); reload() } catch (e) { notify(e.message, 'err') } } }
 
-  const shown = tx.filter((x) => filter === 'todos' || x.kind === filter)
+  const shown = tx.filter(x=>(filter==='todos' || x.kind===filter) && [x.description,x.category].join(' ').toLocaleLowerCase('es-CO').includes(search.toLocaleLowerCase('es-CO')))
   const groups = []
   for (const x of shown.slice(0, limit)) {
     const g = groups[groups.length - 1]
@@ -145,7 +82,7 @@ function Movements({ tx, goals, recurring, reload, notify, historyOnly = false }
 
   return (
     <div className="space-y-4">
-      {!historyOnly && <div id="movimiento" className="scroll-mt-4"><Card title="Nuevo movimiento">
+      {!historyOnly && <div ><Card title="Nuevo movimiento">
         <form id="finance-movement" onSubmit={submit} className="space-y-3">
           <div className="grid grid-cols-3 gap-1.5">
             {Object.entries(KINDS).map(([k, v]) => (
@@ -172,7 +109,7 @@ function Movements({ tx, goals, recurring, reload, notify, historyOnly = false }
           )}
 
           <div className="grid grid-cols-1 gap-2">
-            <input className="field" maxLength={120} placeholder={kind === 'ingreso' ? 'Fuente (ej: Empresa XYZ)' : 'Descripción (opcional)'} value={desc} onChange={(e) => setDesc(e.target.value)} />
+            <input className="field" maxLength={120} placeholder={kind === 'ingreso' ? 'Fuente (opcional)' : 'Detalle del gasto o ahorro (opcional)'} aria-label="Detalle del movimiento" value={desc} onChange={(e) => setDesc(e.target.value)} />
             <input className="field !px-3" type="date" max={t} required value={date} onChange={(e) => setDate(e.target.value)} aria-label="Fecha" />
           </div>
 
@@ -201,11 +138,11 @@ function Movements({ tx, goals, recurring, reload, notify, historyOnly = false }
         </Card>
       )}
 
-      {historyOnly && <Card title="Historial">
+      {historyOnly && <Card title="Gastos y detalles"><label className="block text-sub">Buscar detalle o categoría<input className="field mt-1" type="search" value={search} onChange={e=>{setSearch(e.target.value);setLimit(30)}}/></label>
         <div className="flex flex-wrap gap-1.5">
           {[['todos', 'Todos'], ['ingreso', 'Ingresos'], ['gasto', 'Gastos'], ['ahorro', 'Ahorros']].map(([k, l]) => <Chip key={k} active={filter === k} color={GOLD} onClick={() => { setFilter(k); setLimit(30) }}>{l}</Chip>)}
         </div>
-        {groups.length === 0 ? <Empty title="Sin movimientos" text="Registra tu primer ingreso o gasto arriba." /> : (
+        {groups.length === 0 ? <Empty title="Sin movimientos" text="Registra un movimiento desde la opción Registrar del menú." /> : (
           <div className="space-y-3">
             {groups.map((g) => (
               <div key={g.date}>
@@ -214,7 +151,7 @@ function Movements({ tx, goals, recurring, reload, notify, historyOnly = false }
                   {g.items.map((x) => (
                     <div key={x.id} className="flex items-center gap-3 rounded-2xl border border-white/[.06] bg-card2/70 px-3 py-2.5">
                       <span className="grid h-9 w-9 flex-none place-items-center rounded-xl text-lg" style={{ background: KINDS[x.kind].color + '22' }}>{CAT_ICON[x.category] ?? (x.kind === 'ahorro' ? '🎯' : '📦')}</span>
-                      <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{x.description || x.category}</p>
+                      <div className="min-w-0 flex-1"><p className="break-words text-sm font-semibold">{x.description || x.category}</p>
                         <p className="truncate text-[11px] text-sub">{x.category}{x.from_recurring ? ' · automático' : ''}</p></div>
                       <span className="flex-none text-sm font-extrabold" style={{ color: KINDS[x.kind].color }}>{KINDS[x.kind].sign}{money(x.amount)}</span>
                       <button onClick={() => remove(x.id)} aria-label="Borrar movimiento" className="flex-none rounded-full px-1.5 text-sub hover:bg-error/15 hover:text-error">×</button>
@@ -260,12 +197,7 @@ function Goals({ tx, goals, reload, notify }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2">
-        <Stat label="Total ahorrado" value={money(totalSaved)} color={SAVING} />
-        <Stat label="Metas" value={`${goals.filter((g) => sum(tx.filter((x) => x.goal_id === g.id), (x) => x.amount) >= g.target_amount).length}/${goals.length}`} sub="cumplidas" />
-      </div>
-
-      <Card title="Nueva meta">
+      <Card title="Registrar una meta">
         <form onSubmit={add} className="space-y-2.5">
           <div className="flex flex-wrap gap-1.5">{GOAL_ICONS.map((i) => <button key={i} type="button" onClick={() => setIcon(i)} aria-pressed={icon === i} className={`h-10 w-10 rounded-xl border text-xl transition active:scale-press ${icon === i ? 'border-warning bg-warning/20' : 'border-white/10 bg-white/5'}`}>{i}</button>)}</div>
           <input className="field" placeholder="Ej: Laptop nueva, Fondo de emergencia, Viaje" required maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
@@ -276,6 +208,12 @@ function Goals({ tx, goals, reload, notify }) {
           <button className="btn w-full" disabled={!name.trim() || !Number(target)}>Crear meta</button>
         </form>
       </Card>
+      <div className="grid grid-cols-2 gap-2">
+        <Stat label="Total ahorrado" value={money(totalSaved)} color={SAVING} />
+        <Stat label="Metas" value={`${goals.filter((g) => sum(tx.filter((x) => x.goal_id === g.id), (x) => x.amount) >= g.target_amount).length}/${goals.length}`} sub="cumplidas" />
+      </div>
+
+
 
       {goals.length === 0 ? <Empty title="Aún no tienes metas" text="Define algo concreto por lo que ahorrar y ve cómo avanzas." /> : goals.map((g) => {
         const saved = sum(tx.filter((x) => x.goal_id === g.id), (x) => x.amount)
@@ -320,9 +258,6 @@ export default function Finanzas() {
   const [recurring, setRecurring] = useState([])
   const [ready, setReady] = useState(false)
   const [toast, notify] = useToast()
-  useEffect(() => {
-    if (ready && window.location.hash === '#movimiento') document.getElementById('movimiento')?.scrollIntoView({behavior:'smooth'})
-  }, [ready])
 
   const reload = useCallback(async () => {
     const [a, b, c] = await Promise.all([px.listTransactions(), px.listGoals(), px.listRecurring()])
@@ -343,14 +278,11 @@ export default function Finanzas() {
   return (
     <div className="finance-page space-y-4">
       <PillarHeader pillar="finanzas" title="Finanzas" kicker="Ingresos, gastos y ahorro" color={GOLD} icon="💰" />
-      {!ready ? <p className="py-8 text-center text-sm text-sub">Cargando…</p> : <>
-        <section className="surface space-y-3 !bg-card p-4"><div><p className="text-[12px] font-semibold text-sub">Balance del mes</p><p className="break-words font-display text-[28px] font-extrabold tabular-nums">{money(flow(between(tx,monthStart(),todayStr())).in-flow(between(tx,monthStart(),todayStr())).out)}</p></div><p className="flex flex-wrap justify-between gap-2 text-[12px] text-sub">Ahorro del mes <strong className="text-[16px] text-finance">{money(flow(between(tx,monthStart(),todayStr())).save)}</strong></p><button type="submit" form="finance-movement" className="btn w-full">Registrar movimiento</button></section>
-        <Movements tx={tx} goals={goals} recurring={recurring} reload={reload} notify={notify} />
-        <div id="metas" className="scroll-mt-24"><Goals tx={tx} goals={goals} reload={reload} notify={notify} /></div>
-        <Summary tx={tx} goals={goals} goSection={() => document.getElementById('metas')?.scrollIntoView({behavior:'smooth'})} />
-        <Movements tx={tx} goals={goals} recurring={recurring} reload={reload} notify={notify} historyOnly />
-      </>}
+      <PillarMenu pillar="finanzas"/>
+      {!ready?<p className="py-8 text-center text-sm text-sub">Cargando…</p>:<Outlet context={{tx,goals,recurring,reload,notify}}/>}
       <Toast msg={toast} />
     </div>
   )
 }
+
+export function FinanceView({view}){const props=useOutletContext();return view==='deudas'?<DebtControl/>:view==='metas'?<Goals {...props}/>:view==='resumen'?<Summary {...props}/>:<Movements {...props} historyOnly={view==='historial'}/> }

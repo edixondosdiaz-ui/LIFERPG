@@ -1,31 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { cosmetics } from '../services/economy'
-import { equipItem } from '../services/api'
-
-export default function OwnedAvatarItems() {
-  const { equipped, refreshProfile } = useAuth()
-  const [items, setItems] = useState(null)
-  const [busy, setBusy] = useState(false)
-  const working = useRef(false)
-  const [error, setError] = useState('')
-  useEffect(() => {
-    let active=true
-    cosmetics().then(rows=>{if(active)setItems(rows)}).catch(e=>{if(active)setError(e.message)})
-    return ()=>{active=false}
-  }, [equipped])
-  async function toggle(item) {
-    if(working.current)return
-    working.current=true;setBusy(true);setError('')
-    try {await equipItem(item.id,!item.equipped);await refreshProfile();setItems(await cosmetics())}
-    catch(e){setError(e.message)}finally{working.current=false;setBusy(false)}
-  }
-  return <section className="surface space-y-3 p-4"><h2 className="text-sm font-bold">Tus objetos comprados</h2>
-    {error && <p role="alert" className="text-xs text-error">{error}</p>}
-    {!items && !error && <p className="text-xs text-sub">Cargando inventario…</p>}
-    {items?.length===0 && <p className="text-xs text-sub">Todavía no tienes cosméticos comprados.</p>}
-    <div className="max-h-64 space-y-2 overflow-y-auto">{items?.map(item=><div key={item.id} className="flex items-center justify-between gap-3 rounded-2xl bg-white/5 p-3"><span className="text-xs font-bold">{item.name}</span><button type="button" disabled={busy} className="shrink-0 rounded-xl bg-pu/15 px-3 py-2 text-xs font-bold text-pu-light" onClick={()=>toggle(item)}>{item.equipped?'Equipado · Quitar':'Equipar'}</button></div>)}</div>
-    <Link to="/tienda" className="block text-xs font-bold text-pu-light">Conseguir más objetos en la tienda →</Link>
-  </section>
+import { wallet as getWallet } from '../services/economy'
+import { listInventory, listShopItems, equipItem } from '../services/api'
+import Preview, { shopSection } from './ShopItemPreview'
+export default function OwnedAvatarItems({avatar}){
+ const {equipped,profile,refreshProfile}=useAuth(),[catalog,setCatalog]=useState(null),[owned,setOwned]=useState({}),[wallet,setWallet]=useState(null),[category,setCategory]=useState('all'),[busy,setBusy]=useState(false),[error,setError]=useState(''),working=useRef(false)
+ async function load(){const [items,inventory,w]=await Promise.all([listShopItems(),listInventory(),getWallet()]);setCatalog(items.filter(i=>i.data?.slot));setOwned(Object.fromEntries(inventory.map(i=>[i.item_id,i.equipped])));setWallet(w)}
+ useEffect(()=>{load().catch(()=>setError('No pudimos cargar tus objetos. Intenta de nuevo.'))},[equipped])
+ async function toggle(item){if(working.current)return;working.current=true;setBusy(true);setError('');try{await equipItem(item.id,!owned[item.id]);await refreshProfile();await load()}catch{setError('No pudimos equipar el objeto. Revisa tu conexión y tus beneficios activos.')}finally{working.current=false;setBusy(false)}}
+ const categories=[['all','Todos'],['avatar','Avatar'],['backgrounds','Fondos'],['frames','Marcos'],['titles','Títulos']]
+ const items=(catalog || []).filter(i=>category==='all' || shopSection(i)===category).sort((a,b)=>Number(b.id in owned)-Number(a.id in owned))
+ return <section className="surface space-y-3 p-4"><h2 className="text-sm font-bold">Objetos del avatar</h2><label className="block text-xs text-sub">Categoría<select className="field mt-1" value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>{error && <p role="alert" className="text-sm text-error">{error}</p>}{!catalog && !error && <p className="text-xs text-sub">Cargando inventario…</p>}<div className="grid grid-cols-2 gap-2">{items.map(item=>{const has=item.id in owned,on=owned[item.id],locked=!has || (item.is_premium && !wallet?.premium);return <article key={item.id} className={`min-w-0 space-y-2 rounded-small border p-2 ${on && !locked?'border-pu bg-pu/10':'border-stroke bg-panel-inset'}`}><div className={`grid h-28 place-items-center overflow-hidden ${locked?'opacity-60':''}`}><Preview item={item} avatar={avatar || profile?.avatar} equipped={equipped}/></div><h3 className="break-words text-xs font-bold">{item.name}</h3><p className="text-xs text-sub">{locked?has?'Bloqueado · requiere Premium':'Bloqueado · disponible en tienda':on?'Equipado':'Comprado'}</p>{!locked && <button type="button" disabled={busy} className="pilot-secondary w-full !px-2 text-xs" onClick={()=>toggle(item)}>{on?'Quitar':'Equipar'}</button>}</article>})}</div><Link to="/tienda" className="inline-flex min-h-[44px] items-center text-xs font-bold text-pu-light">Conseguir objetos en la tienda →</Link></section>
 }

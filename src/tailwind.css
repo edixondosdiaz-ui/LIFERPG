@@ -64,3 +64,6 @@
   }
   button:active, a:active { transform: none !important; }
 }
+
+.menu-scroll { scrollbar-width: none; }
+.menu-scroll::-webkit-scrollbar { display: none; }

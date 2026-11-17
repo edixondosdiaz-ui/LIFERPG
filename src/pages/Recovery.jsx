@@ -1,3 +1,4 @@
+import PasswordInput from '../components/PasswordInput'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, recoveryState } from '../services/supabase'
@@ -71,7 +72,7 @@ export default function Recovery({ reset = false }) {
   return <main className="mx-auto flex min-h-screen w-full min-w-0 max-w-md flex-col justify-center space-y-5 px-5 py-8 text-ink">
     <h1 className="text-2xl font-extrabold">{reset ? 'Restablecer contraseña' : 'Recuperar contraseña'}</h1>
     {checking ? <p className="text-sub">Verificando enlace…</p> : reset && !valid && !done ? <section className="surface space-y-4 p-5"><p>El enlace venció o no es válido.</p><Link className="text-pu-light" to="/recuperar">Pedir otro enlace</Link></section> : !done && <form onSubmit={submit} aria-busy={busy} className="surface min-w-0 space-y-4 p-5">
-      {reset ? <><label className="block text-sm">Nueva contraseña<input className="field mt-2" type="password" autoComplete="new-password" required minLength={8} value={password} onChange={e => setPassword(e.target.value)} /></label><label className="block text-sm">Confirmar contraseña<input className="field mt-2" type="password" autoComplete="new-password" required minLength={8} value={confirm} onChange={e => setConfirm(e.target.value)} /></label></> : <label className="block text-sm">Correo<input className="field mt-2" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} /></label>}
+      {reset ? <><label className="block text-sm">Nueva contraseña<PasswordInput wrapperClassName="mt-2" className="field" autoComplete="new-password" required minLength={8} value={password} onChange={e => setPassword(e.target.value)} /></label><label className="block text-sm">Confirmar contraseña<PasswordInput wrapperClassName="mt-2" className="field" autoComplete="new-password" required minLength={8} value={confirm} onChange={e => setConfirm(e.target.value)} /></label></> : <label className="block text-sm">Correo<input className="field mt-2" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} /></label>}
       <button className="btn min-h-[44px] w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pu-light focus-visible:ring-offset-2 focus-visible:ring-offset-app" disabled={busy || seconds > 0}>{busy ? reset ? 'Guardando…' : 'Enviando enlace…' : seconds ? `Reenviar en ${seconds} s` : reset ? 'Guardar contraseña' : 'Enviar enlace'}</button>
       {feedback}
       <div className="pt-2">{backButton}</div>

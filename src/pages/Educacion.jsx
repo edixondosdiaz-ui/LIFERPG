@@ -1,3 +1,5 @@
+import { Outlet, useOutletContext } from 'react-router-dom'
+import PillarMenu from '../components/PillarMenu'
 import StudyCalendar from '../components/StudyCalendar'
 import AchievementCard from '../components/AchievementCard'
 import { palette } from '../design/tokens'
@@ -6,7 +8,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import * as api from '../services/api'
 import * as px from '../services/pillars'
-import { BarChart, HBars, Meter, Ring } from '../components/charts'
+import { Meter, Ring } from '../components/charts'
 import { Card, Chip, Empty, GoalEditor, PillarHeader, Stat, Tabs, Toast, confirmDelete, useToast, xpText } from '../components/ui'
 import { addDays, daysBetween, fmtDay, fmtHours, lastDays, streakOf, sum, today as todayStr, weekStart, weekdayLetter } from '../lib/dates'
 import { levelProgress } from '../lib/xp'
@@ -89,7 +91,6 @@ function Tasks({ tasks, reload, notify }) {
 /* -------------------------------- Progreso -------------------------------- */
 function Progress({ sessions, tasks, settings, saveSettings, reload, notify }) {
   const { profile } = useAuth()
-  const [range, setRange] = useState('dia')
   const [ach, setAch] = useState([])
   const t = todayStr(), ws = weekStart()
   useEffect(() => { api.getAchievements().then((a) => setAch(a.filter((x) => x.id.startsWith('study_') || x.id.startsWith('tasks_')))).catch(() => {}) }, [sessions.length, tasks])
@@ -104,15 +105,6 @@ function Progress({ sessions, tasks, settings, saveSettings, reload, notify }) {
   const totalMin = sum(sessions, (s) => s.minutes)
   const xp = profile?.pillar_xp?.intelecto ?? 0
   const lp = levelProgress(xp)
-
-  const bars = range === 'dia'
-    ? lastDays(7).map((d) => ({ label: weekdayLetter(d), value: +((byDay.get(d) || 0) / 60).toFixed(2), active: d === t }))
-    : Array.from({ length: 8 }, (_, i) => {
-        const start = addDays(ws, (i - 7) * 7), end = addDays(start, 6)
-        return { label: fmtDay(start).replace(/ .*/, ''), value: +(sum(sessions.filter((s) => s.studied_on >= start && s.studied_on <= end), (s) => s.minutes) / 60).toFixed(2), active: i === 7 }
-      })
-
-  const subjects = Object.entries(sessions.reduce((a, s) => ({ ...a, [s.category]: (a[s.category] || 0) + s.minutes }), {})).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([label, value]) => ({ label, value }))
 
   async function remove(id) { if (confirmDelete('¿Borrar esta sesión?')) { try { await px.deleteStudy(id); reload() } catch (e) { notify(e.message, 'err') } } }
   const tasksDone = tasks.filter((x) => x.done).length
@@ -143,14 +135,7 @@ function Progress({ sessions, tasks, settings, saveSettings, reload, notify }) {
         <Stat label="Tareas hechas" value={`${tasksDone}/${tasks.length}`} sub={tasks.length ? `${Math.round((tasksDone / tasks.length) * 100)}% cumplido` : undefined} />
       </div>
 
-      <Card title="Horas estudiadas" right={<Tabs value={range} onChange={setRange} color={SKY} items={[{ id: 'dia', label: 'Por día' }, { id: 'sem', label: 'Por semana' }]} />}>
-        <BarChart colors={[SKY]} data={bars} format={(v) => `${v} h`} empty="Guarda una sesión para ver tus horas." />
-      </Card>
-
       <StudyCalendar revision={sessions}/>
-
-      <Card title="Materias más trabajadas"><HBars items={subjects} color={SKY} format={fmtHours} empty="Aún no hay materias registradas." /></Card>
-
       {ach.length > 0 && (
         <Card title="Logros de estudio">
           <div className="space-y-2">
@@ -203,13 +188,11 @@ export default function Educacion() {
   return (
     <div className="space-y-5">
       <PillarHeader pillar="intelecto" title="Educación" kicker="Enfoque, tareas y aprendizaje" color={SKY} icon="🧠" />
-      {!ready ? <p className="py-8 text-center text-sm text-sub">Cargando…</p> : <>
-        <StudyFocus cats={cats} last={sessions[0]} onSaved={afterSave} notify={notify}>
-        <Progress sessions={sessions} tasks={tasks} settings={settings} saveSettings={saveSettings} reload={reload} notify={notify} />
-        <Tasks tasks={tasks} reload={reload} notify={notify} />
-        </StudyFocus>
-      </>}
+      <PillarMenu pillar="educacion"/>
+      {!ready?<p className="py-8 text-center text-sm text-sub">Cargando…</p>:<Outlet context={{sessions,tasks,settings,saveSettings,reload,notify,cats,afterSave}}/>}
       <Toast msg={toast} />
     </div>
   )
 }
+
+export function EducationView({view}){const props=useOutletContext();return view==='tareas'?<Tasks {...props}/>:view==='progreso'?<Progress {...props}/>:<StudyFocus onSaved={props.afterSave} notify={props.notify}><Card title="Tu progreso de hoy"><p className="text-sm">{props.sessions.filter(s=>s.studied_on===todayStr()).reduce((n,s)=>n+Number(s.minutes),0)} minutos · {props.sessions.filter(s=>s.studied_on===todayStr()).length} sesiones guardadas</p></Card><StudyCalendar revision={props.sessions}/></StudyFocus> }

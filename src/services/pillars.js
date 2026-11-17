@@ -80,8 +80,6 @@ export async function listStudy(since) {
   return unwrap(await supabase.from('edu_sessions').select('id, topic, category, mode, minutes, studied_on, created_at')
     .gte('studied_on', since).order('created_at', { ascending: false }).limit(3000))
 }
-export const logStudy = async ({ topic, category, mode, minutes }) =>
-  unwrap(await supabase.rpc('log_study_session', { p_topic: topic, p_category: category, p_mode: mode, p_minutes: minutes }))
 export const deleteStudy = async (id) => unwrap(await supabase.from('edu_sessions').delete().eq('id', id))
 
 export async function listTasks() {

@@ -1,63 +1,21 @@
-import { palette } from '../design/tokens'
 import { useEffect, useRef, useState } from 'react'
 import * as ex from '../services/experience'
-import * as px from '../services/pillars'
-import { Card, Chip } from './ui'
+import { Card } from './ui'
 import { clock } from '../lib/dates'
 import { PRODUCT } from '../lib/product'
-
-export default function StudyFocus({ cats, last, onSaved, notify, children }) {
-  const [timer, setTimer] = useState(null)
-  const [ready, setReady] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const working = useRef(false)
-  const autoAttempted = useRef(false)
-  const [cfg, setCfg] = useState({ mode:'pomodoro', focus:PRODUCT.focusMinutes, brk:PRODUCT.breakMinutes, topic:'', category:last?.category || 'General' })
-  const [minutes, setMinutes] = useState(String(PRODUCT.focusMinutes))
-  const [, tick] = useState(0)
-  useEffect(() => {
-    let live = true
-    Promise.all([ex.getTimer('study'),ex.getTimer('break')]).then(([s,b])=>{ if (live) { setTimer(s || b); if (s) setCfg(s.config) } }).catch(e=>notify(e.message,'err')).finally(()=>{if(live) setReady(true)})
-    return ()=>{live=false}
-  }, [notify])
-  async function act(action) {
-    if (working.current) return
-    working.current=true; setBusy(true)
-    try {
-      const kind=timer?.kind || 'study'
-      if (action==='start') setTimer(await ex.timerAction('study','start',{...cfg,topic:cfg.topic.trim() || 'Estudio'}))
-      else if (action==='finish') {
-        const result=await ex.timerAction(kind,'finish')
-        setTimer(null)
-        if (kind==='study') {
-          await onSaved()
-          notify(`Sesión guardada · ${Math.floor(result.seconds/60)} min · +${result.xp_awarded || 0} XP`)
-          if (timer.config.mode==='pomodoro') setTimer(await ex.timerAction('break','start',timer.config))
-        }
-      } else if (action==='discard') { await ex.timerAction(kind,'discard'); setTimer(null) }
-      else setTimer(await ex.timerAction(kind,action))
-    } catch(e) { notify(e.message,'err') } finally {working.current=false;setBusy(false)}
-  }
-  const elapsed=ex.timerSeconds(timer)
-  const isBreak=timer?.kind==='break'
-  const target=timer ? (isBreak ? timer.config.brk*60 : timer.config.mode==='pomodoro' ? timer.config.focus*60 : null) : cfg.focus*60
-  useEffect(()=>{autoAttempted.current=false},[timer?.kind,timer?.running_since])
-  useEffect(()=>{
-    if (!timer?.running_since) return
-    const id=setInterval(()=>{ tick(n=>n+1); if(target && ex.timerSeconds(timer)>=target && !autoAttempted.current) {autoAttempted.current=true;act('finish')} },1000)
-    return ()=>clearInterval(id)
-  },[timer,target,onSaved])
-  async function manual(e) {
-    e.preventDefault()
-    if(working.current) return
-    working.current=true;setBusy(true)
-    try { const r=await px.logStudy({topic:cfg.topic.trim() || 'Estudio',category:cfg.category,mode:'libre',minutes:Number(minutes)}); await onSaved();notify(`Registro manual guardado · +${r.xp_awarded || 0} XP`) } catch(e) {notify(e.message,'err')} finally {working.current=false;setBusy(false)}
-  }
-  return <div className="space-y-4"><section className="surface space-y-3 !bg-card p-4"><h2 className="font-bold">{isBreak ? 'Descanso' : 'Enfócate'}</h2>
-    <p className="text-center text-5xl font-black tabular-nums">{clock(timer ? target ? Math.max(0,target-elapsed) : elapsed : cfg.mode==='pomodoro' ? cfg.focus*60 : 0)}</p>
-    {timer ? <><p className="text-center text-xs text-sub">{timer.config.category} · {timer.running_since ? 'En curso' : 'En pausa'}</p><div className="grid grid-cols-2 gap-2"><button className="btn" disabled={busy} onClick={()=>act(timer.running_since?'pause':'resume')}>{timer.running_since?'Pausar':'Reanudar'}</button><button className="btn" disabled={busy} onClick={()=>act('finish')}>{isBreak?'Terminar descanso':'Terminar y guardar'}</button></div><button className="text-xs text-sub" disabled={busy} onClick={()=>{if(confirm('¿Descartar el temporizador sin guardar?'))act('discard')}}>Descartar</button></> : <button className="btn w-full" disabled={!ready || busy} onClick={()=>act('start')}>Iniciar {cfg.mode==='pomodoro'?'Pomodoro':'sesión libre'}</button>}
-  </section><Card title="Configurar sesión">
-    {!timer && <><label className="block text-xs text-sub">Modo<select className="field mt-2" value={cfg.mode} onChange={e=>setCfg({...cfg,mode:e.target.value})}><option value="pomodoro">Pomodoro</option><option value="libre">Cronómetro libre</option></select></label><input className="field" aria-label="Tema de estudio" placeholder="Tema (opcional)" maxLength={80} value={cfg.topic} onChange={e=>setCfg({...cfg,topic:e.target.value})}/><div className="flex flex-wrap gap-2">{cats.map(c=><Chip key={c} active={cfg.category===c} color={palette.education} onClick={()=>setCfg({...cfg,category:c})}>{c}</Chip>)}</div><input className="field" aria-label="Otra categoría" placeholder="Otra categoría" maxLength={40} value={cats.includes(cfg.category)?'':cfg.category} onChange={e=>setCfg({...cfg,category:e.target.value})}/>{cfg.mode==='pomodoro' && <div className="grid grid-cols-2 gap-2">{[['focus','Enfoque (min)',120],['brk','Descanso (min)',60]].map(([k,label,max])=><label key={k} className="text-xs text-sub">{label}<input className="field mt-2" type="number" inputMode="numeric" min={1} max={max} required value={cfg[k]} onChange={e=>setCfg({...cfg,[k]:Math.max(1,Math.min(max,Number(e.target.value)||1))})}/></label>)}</div>}</>}
-    <p className="text-xs text-sub">El servidor cuenta el tiempo enfocado; las pausas y los descansos no dan XP.</p>
-  </Card><Card title="Registro manual rápido"><form onSubmit={manual} className="space-y-3"><p className="text-xs text-sub">Para una actividad que hiciste sin cronómetro. Categoría: {cfg.category || 'General'}.</p><label className="block text-xs">Minutos<input className="field mt-2" type="number" inputMode="numeric" min={1} max={720} required value={minutes} onChange={e=>setMinutes(e.target.value)}/></label><button disabled={busy} className="btn w-full">Guardar sesión manual</button></form></Card>{children}</div>
+import { validStudyMinutes } from '../lib/trainingForms'
+export default function StudyFocus({onSaved,notify,children}){
+ const [timer,setTimer]=useState(null),[ready,setReady]=useState(false),[busy,setBusy]=useState(false),[focus,setFocus]=useState(String(PRODUCT.focusMinutes)),[topic,setTopic]=useState(''),[error,setError]=useState('')
+ const working=useRef(false),attempted=useRef(false),[,tick]=useState(0)
+ useEffect(()=>{let live=true;Promise.all([ex.getTimer('study'),ex.getTimer('break')]).then(([s,b])=>{if(live){setTimer(s || b);setReady(true)}}).catch(()=>{if(live)setError('No pudimos recuperar el temporizador. Vuelve a entrar para intentarlo de nuevo.')});return()=>{live=false}},[])
+ const isBreak=timer?.kind==='break',elapsed=ex.timerSeconds(timer),target=(timer?(isBreak?timer.config.brk:timer.config.focus):Number(focus))*60
+ async function act(action){if(working.current)return;working.current=true;setBusy(true);setError('');try{
+  if(action==='start'){if(!validStudyMinutes(focus))throw Error('invalid');setTimer(await ex.timerAction('study','start',{mode:'pomodoro',focus:Number(focus),brk:PRODUCT.breakMinutes,topic:topic.trim() || 'Estudio',category:'General'}))}
+  else if(action==='finish'){const kind=timer.kind;const result=await ex.timerAction(kind,'finish',{session_id:timer.config.session_id});setTimer(null);if(kind==='study'){await onSaved();notify(`Sesión completada · +${result.xp_awarded || 0} XP`);setTimer(await ex.timerAction('break','start',timer.config))}}
+  else if(action==='discard'){await ex.timerAction(timer.kind,'discard');setTimer(null);notify('Sesión cancelada, sin XP')}
+  else setTimer(await ex.timerAction(timer.kind,action))
+ }catch{setError('No pudimos confirmar la acción. Revisa tu conexión e intenta de nuevo; una sesión incompleta no da XP.')}finally{working.current=false;setBusy(false)}}
+ useEffect(()=>{attempted.current=false},[timer?.kind,timer?.running_since])
+ useEffect(()=>{if(!timer?.running_since)return;const id=setInterval(()=>{tick(v=>v+1);if(ex.timerSeconds(timer)>=target && !attempted.current){attempted.current=true;act('finish')}},1000);return()=>clearInterval(id)},[timer,target])
+ return <div className="space-y-4"><Card title={isBreak?'Descanso':'Enfócate'} className="!bg-card"><p className="text-center text-5xl font-black tabular-nums">{clock(Math.max(0,(target || 0)-elapsed))}</p>{!timer?<form className="space-y-3" onSubmit={e=>{e.preventDefault();if(validStudyMinutes(focus))act('start')}}><div className="grid grid-cols-4 gap-2">{[15,25,45,60].map(n=><button type="button" key={n} aria-pressed={Number(focus)===n} onClick={()=>setFocus(String(n))} className="pilot-secondary !px-2">{n} min</button>)}</div><label className="block text-sub">Tiempo de enfoque (1–180 min)<input className="field mt-1" type="number" inputMode="numeric" min={1} max={180} required value={focus} onChange={e=>setFocus(e.target.value)} aria-invalid={!validStudyMinutes(focus)}/></label>{!validStudyMinutes(focus) && <p className="text-xs text-error">Escribe un número entero de 1 a 180.</p>}<details><summary className="flex min-h-[44px] cursor-pointer items-center text-xs text-sub">Tema (opcional)</summary><input className="field" aria-label="Tema de estudio" maxLength={80} value={topic} onChange={e=>setTopic(e.target.value)}/></details><button className="btn w-full" disabled={!ready || busy || !validStudyMinutes(focus)}>{busy?'Iniciando…':'Iniciar Pomodoro'}</button></form>:<><p className="text-center text-xs text-sub">{timer.running_since?'En curso':'En pausa'}</p><div className="grid grid-cols-2 gap-2"><button className="btn" disabled={busy} onClick={()=>act(timer.running_since?'pause':'resume')}>{timer.running_since?'Pausar':'Reanudar'}</button><button className="btn" disabled={busy || (!isBreak && elapsed<target)} onClick={()=>act('finish')}>{isBreak?'Terminar descanso':'Completar sesión'}</button></div><button className="min-h-[44px] text-xs text-sub" disabled={busy} onClick={()=>{if(confirm('¿Cancelar esta sesión sin ganar XP?'))act('discard')}}>Cancelar</button></>}<p className="text-xs text-sub">1 XP por cada 2 minutos completos, mínimo 1 por sesión completada y máximo 120 XP al día. Pausas, descansos y cancelaciones no dan XP.</p>{error && <p role="alert" className="text-sm text-error">{error}</p>}</Card>{children}</div>
 }

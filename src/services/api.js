@@ -25,8 +25,11 @@ export async function getSession() {
 }
 
 // Devuelve el usuario, o null si Supabase pide confirmar el correo antes de entrar
-export async function signUp({ email, password }) {
-  const { data, error } = await supabase.auth.signUp({ email, password })
+export async function signUp({ email, password, username, displayName, birthDate, guardianAccepted, terms, legalVersion }) {
+  const { data, error } = await supabase.auth.signUp({ email, password, options:{data:{
+    registration_version:legalVersion,username,display_name:displayName,birth_date:birthDate,
+    terms_accepted:terms,terms_version:legalVersion,privacy_version:legalVersion,guardian_authorized:guardianAccepted
+  }}})
   if (error) throw new Error(error.message)
   return data.session ? data.user : null
 }

@@ -5,9 +5,9 @@ function result(response){
   return response.data
 }
 export const scheduledRoutines=async()=>result(await supabase.from('routines').select('id,name,days:routine_days(weekday)').is('deleted_at',null).order('created_at'))
-export const routineExercises=async id=>result(await supabase.from('routine_exercises').select('exercise:exercises(id,name)').eq('routine_id',id).order('created_at')).map(r=>r.exercise).filter(Boolean)
+export const routineExercises=async id=>result(await supabase.from('routine_exercises').select('default_weight_kg,default_reps,default_sets,exercise:exercises(id,name)').eq('routine_id',id).order('created_at')).filter(r=>r.exercise).map(r=>({...r.exercise,default_weight_kg:r.default_weight_kg,default_reps:r.default_reps,default_sets:r.default_sets}))
 export const routineState=async id=>result(await supabase.rpc('routine_workout_state',{p_routine:id}))
-export const createRoutine=async(name,days,names)=>result(await supabase.rpc('create_scheduled_routine',{p_name:name,p_days:days,p_names:names}))
+export const createRoutine=async(name,days,exercises,request)=>result(await supabase.rpc('create_training_routine',{p_name:name,p_days:days,p_exercises:exercises,p_request:request}))
 export const addToRoutine=async(routine,weekday,exercise=null,name=null)=>result(await supabase.rpc('add_routine_exercise',{p_routine:routine,p_weekday:weekday,p_exercise:exercise,p_name:name}))
 export const searchExercises=async query=>result(await supabase.from('exercises').select('id,name').ilike('name',`%${query.replace(/[%_\\]/g,'')}%`).order('name').limit(20))
 export const unlinkExercise=async(routine,exercise)=>result(await supabase.rpc('remove_daily_exercise',{p_routine:routine,p_exercise:exercise}))

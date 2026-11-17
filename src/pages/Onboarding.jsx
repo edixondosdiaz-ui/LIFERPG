@@ -21,6 +21,7 @@ export default function Onboarding() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
+  useEffect(()=>{if(profile?.username)setUsername(v=>v || profile.username)},[profile?.username])
   const u = username.toLowerCase()
 
   // Disponibilidad en vivo (con espera para no consultar en cada tecla)
@@ -49,7 +50,7 @@ export default function Onboarding() {
   async function finish() {
     setBusy(true); setErr('')
     try {
-      await api.completeOnboarding({ username: u, displayName: '', avatar })
+      await api.completeOnboarding({ username: u, displayName: profile?.display_name || '', avatar })
       haptic([20, 40, 20])
       await refreshProfile() // el Gate de App.jsx pasa a la app al ver onboarding_completed
     } catch (e) {
@@ -88,7 +89,7 @@ export default function Onboarding() {
             <Avatar avatar={avatar} view="head" size={64} />
             <div className="min-w-0">
               <p className="truncate text-lg font-extrabold">@{u || 'tu_usuario'}</p>
-              <p className="truncate text-xs text-sub">Tu nombre visible es tu @usuario</p>
+              <p className="truncate text-xs text-sub">{profile?.display_name || 'Tu nombre visible es tu @usuario'}</p>
             </div>
           </div>
 

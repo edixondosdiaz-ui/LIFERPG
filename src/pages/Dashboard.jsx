@@ -38,7 +38,7 @@ export default function Dashboard() {
         const last = (await px.listStudy('1900-01-01'))[0]
         await ex.timerAction('study','start',{ mode:'pomodoro', focus:PRODUCT.focusMinutes, brk:PRODUCT.breakMinutes, topic:last?.topic || 'Estudio', category:last?.category || 'General' })
         navigate('/pilares/educacion')
-      } else navigate('/pilares/finanzas#movimiento')
+      } else navigate('/pilares/finanzas/movimientos')
     } catch (e) { setMsg(e.message) } finally { setBusy(false) }
   }
   return <div className="space-y-5">

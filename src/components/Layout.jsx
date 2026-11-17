@@ -1,3 +1,4 @@
+import NotificationCenter from './NotificationCenter'
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -35,8 +36,9 @@ export default function Layout() {
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-transparent text-ink">
       <header className={`relative z-40 flex shrink-0 items-center justify-between gap-2 border-b border-stroke-glass px-4 backdrop-blur-glass ${isToday ? 'h-header bg-header' : 'h-20 bg-app/95'}`}>
         <Link to="/" className="min-w-0 rounded-small">{isToday?<TodayIdentity username={profile?.username}/>:<span className="text-lg font-extrabold">LIFE<span className="text-pu">RPG</span></span>}</Link>
-        <div ref={menu} className="relative flex items-center gap-3">
-          <Link to="/tienda" className="text-sm font-bold text-gold" aria-label="Monedas y tienda">{(profile?.coins ?? 0).toLocaleString('es-CO',isToday?{notation:'compact',maximumFractionDigits:1}:{})}{!isToday && ' monedas'}</Link>
+        <div ref={menu} className="relative flex shrink-0 items-center gap-2">
+          <Link to="/tienda" className="max-w-24 truncate text-sm font-bold text-gold" aria-label="Monedas y tienda">{(profile?.coins ?? 0).toLocaleString('es-CO',isToday?{notation:'compact',maximumFractionDigits:1}:{})}{!isToday && ' monedas'}</Link>
+          <NotificationCenter/>
           <button aria-label={isToday?`Menú de usuario, nivel ${progress.level}, ${progress.current} de ${progress.needed} XP`:"Menú de usuario"} aria-expanded={open} aria-controls="user-menu" onClick={() => setOpen(!open)} className="shrink-0 rounded-full border border-pu/40 transition active:scale-press">{isToday?<XPAvatar profile={profile} equipped={equipped}/>:<Avatar avatar={profile?.avatar} equipped={equipped} view="head" size={44}/>}</button>
           {open && <nav id="user-menu" aria-label="Cuenta" className="absolute right-0 top-14 w-56 rounded-2xl border border-white/10 bg-card p-2 shadow-card">
             { [['/perfil','Mi perfil'],['/perfil?editar=avatar','Editar avatar'],['/amigos','Amigos'],['/premium','Premium'],['/configuracion','Configuración']].map(([to,label]) => <Link key={to} to={to} className="block rounded-xl px-4 py-3 text-sm hover:bg-white/5">{label}</Link>) }

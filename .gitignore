@@ -25,3 +25,8 @@ supabase/*
 !supabase/08_correr_caminar.sql
 
 !supabase/15_fuerza_registro_diario.sql
+!supabase/16_registro_terminos.sql
+!supabase/17_finanzas_deudas.sql
+!supabase/18_fuerza_estudio.sql
+!supabase/19_tutorial.sql
+!supabase/20_notificaciones.sql

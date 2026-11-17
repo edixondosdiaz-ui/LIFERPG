@@ -89,7 +89,7 @@ export default function AvatarEditor({ value, onChange, equipped = [], canShop =
           </div>
         </Group></>}
       </div>
-      {canShop && <OwnedAvatarItems />}
+      {canShop && <OwnedAvatarItems avatar={a}/>}
     </div>
   )
 }

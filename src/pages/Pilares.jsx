@@ -5,7 +5,7 @@ import { levelProgress } from '../lib/xp'
 
 const MODULES = [
   { key: 'fuerza', label: 'Fuerza', icon: '⚔️', desc: 'Rutinas, series y sobrecarga progresiva', color: palette.strength, to: '/pilares/fuerza' },
-  { key: 'vitalidad', label: 'Salud', icon: '❤️', desc: 'Agua, sueño y alimentación', color: palette.health, to: '/pilares/salud' },
+  { key: 'vitalidad', label: 'Salud', icon: '❤️', desc: 'Running, agua y sueño', color: palette.health, to: '/pilares/salud' },
   { key: 'intelecto', label: 'Educación', icon: '🧠', desc: 'Pomodoro, tareas y aprendizaje', color: palette.education, to: '/pilares/educacion' },
   { key: 'finanzas', label: 'Finanzas', icon: '💰', desc: 'Ingresos, gastos, ahorro y metas', color: palette.finance, to: '/pilares/finanzas' },
 ]
